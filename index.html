@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="FPL Command — Your personal Fantasy Premier League analytics dashboard" />
+  <title>FPL COMMAND</title>
+  <link rel="stylesheet" href="style.css" />
+  <!-- Favicon: green square -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%2300e676'/><text y='.9em' font-size='80' x='10' fill='%23060a12' font-family='serif' font-weight='bold'>F</text></svg>" />
+</head>
+<body>
+
+  <!-- ── Loading Screen ──────────────────────────────────────── -->
+  <div class="loading-screen" id="loadingScreen">
+    <div class="loading-logo">FPL <span>COMMAND</span></div>
+    <div class="loading-bar-wrap">
+      <div class="loading-bar" id="loadingBar"></div>
+    </div>
+    <div class="loading-msg" id="loadingMsg">CONNECTING TO FPL API...</div>
+  </div>
+
+  <!-- ── Header ──────────────────────────────────────────────── -->
+  <header class="header">
+    <div class="logo">
+      <div class="logo-mark">F</div>
+      <div class="logo-text">FPL <span>COMMAND</span></div>
+    </div>
+    <div class="header-meta">
+      <span class="gw-badge" id="gwBadge">GW —</span>
+      <span class="live-dot" id="liveDot">OFFLINE</span>
+    </div>
+  </header>
+
+  <!-- ── Navigation ──────────────────────────────────────────── -->
+  <nav class="nav-bar" role="navigation" aria-label="Main navigation">
+    <button class="nav-btn active" data-tab="dashboard" onclick="switchTab('dashboard')">
+      <span class="nav-icon">⬡</span> Dashboard
+    </button>
+    <button class="nav-btn" data-tab="players" onclick="switchTab('players')">
+      <span class="nav-icon">◈</span> Players
+    </button>
+    <button class="nav-btn" data-tab="myteam" onclick="switchTab('myteam')">
+      <span class="nav-icon">◉</span> My Team
+    </button>
+    <button class="nav-btn" data-tab="transfers" onclick="switchTab('transfers')">
+      <span class="nav-icon">⇄</span> Transfers
+    </button>
+    <button class="nav-btn" data-tab="fixtures" onclick="switchTab('fixtures')">
+      <span class="nav-icon">◷</span> Fixtures
+    </button>
+    <button class="nav-btn" data-tab="live" onclick="switchTab('live')">
+      <span class="nav-icon">◎</span> Live GW
+    </button>
+  </nav>
+
+  <!-- ── Main Content ────────────────────────────────────────── -->
+  <main class="main">
+
+    <!-- ======================================================== -->
+    <!-- TAB 1: DASHBOARD                                         -->
+    <!-- ======================================================== -->
+    <div class="tab-panel active" id="tab-dashboard">
+
+      <!-- Gameweek Stats Row -->
+      <div class="grid-4" style="margin-bottom:1rem;">
+        <div class="stat-tile green">
+          <div class="stat-label">Projected Pts</div>
+          <div class="stat-value green counter" id="dashProjected">—</div>
+          <div class="stat-sub">Your Squad</div>
+        </div>
+        <div class="stat-tile amber">
+          <div class="stat-label">Captain Pts</div>
+          <div class="stat-value amber counter" id="dashCaptainPts">—</div>
+          <div class="stat-sub" id="dashCaptainName">No Captain Set</div>
+        </div>
+        <div class="stat-tile blue">
+          <div class="stat-label">Team Value</div>
+          <div class="stat-value blue" id="dashValue">—</div>
+          <div class="stat-sub" id="dashPlayerCount">0 players selected</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-label">GW Avg</div>
+          <div class="stat-value counter" id="dashGwAvg">—</div>
+          <div class="stat-sub">League average</div>
+        </div>
+      </div>
+
+      <!-- Captain Suggestions -->
+      <div class="section-header">
+        <span class="section-title">CAPTAIN AI</span>
+        <div class="section-line"></div>
+        <button class="btn btn-amber btn-sm" onclick="autoPickCaptain()" id="captainBtn">⚡ AUTO PICK</button>
+      </div>
+      <div id="captainArea">
+        <div class="empty-state">
+          <div class="icon">🎖</div>
+          <h3>NO SQUAD SELECTED</h3>
+          <p>Add 15 players in My Team, then use Auto Pick to find your best captain.</p>
+        </div>
+      </div>
+
+      <!-- Team Risk Analysis -->
+      <div class="section-header" style="margin-top:1.5rem;">
+        <span class="section-title">RISK ANALYSIS</span>
+        <div class="section-line"></div>
+      </div>
+      <div class="card" id="riskArea">
+        <div class="empty-state">
+          <div class="icon">🛡</div>
+          <h3>NO SQUAD DATA</h3>
+          <p>Build your team to see risk flags for injuries, form, and fixtures.</p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- TAB 2: PLAYERS                                           -->
+    <!-- ======================================================== -->
+    <div class="tab-panel" id="tab-players">
+
+      <div class="section-header">
+        <span class="section-title">ALL PLAYERS</span>
+        <div class="section-line"></div>
+        <button class="refresh-btn" onclick="refreshData()" id="refreshBtn">↻ REFRESH</button>
+      </div>
+
+      <!-- Filter Controls -->
+      <div class="table-controls">
+        <input
+          class="search-input"
+          type="text"
+          id="playerSearch"
+          placeholder="Search player or team..."
+          oninput="filterPlayers()"
+        />
+        <select class="filter-select" id="posFilter" onchange="filterPlayers()">
+          <option value="">All Positions</option>
+          <option value="GKP">GKP</option>
+          <option value="DEF">DEF</option>
+          <option value="MID">MID</option>
+          <option value="FWD">FWD</option>
+        </select>
+        <select class="filter-select" id="teamFilter" onchange="filterPlayers()">
+          <option value="">All Teams</option>
+        </select>
+        <select class="filter-select" id="sortSelect" onchange="filterPlayers()">
+          <option value="total_points">Sort: Total Pts</option>
+          <option value="form">Sort: Form</option>
+          <option value="ep_next">Sort: xPts Next</option>
+          <option value="now_cost">Sort: Price ↓</option>
+          <option value="selected_by_percent">Sort: Ownership</option>
+          <option value="ict_index">Sort: ICT Index</option>
+        </select>
+      </div>
+
+      <!-- Player Table -->
+      <div class="player-table-wrap">
+        <table class="player-table" id="playerTable">
+          <thead>
+            <tr>
+              <th>Player</th>
+              <th>Pos</th>
+              <th>Team</th>
+              <th>Price</th>
+              <th>Form</th>
+              <th>Pts</th>
+              <th>xPts</th>
+              <th>Sel%</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="playerTableBody">
+            <tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--text-sub);">Loading players...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pagination" id="playerPagination"></div>
+
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- TAB 3: MY TEAM                                           -->
+    <!-- ======================================================== -->
+    <div class="tab-panel" id="tab-myteam">
+
+      <div class="section-header">
+        <span class="section-title">MY SQUAD</span>
+        <div class="section-line"></div>
+        <div style="display:flex;gap:0.5rem;">
+          <button class="btn btn-outline btn-sm" onclick="clearTeam()">✕ Clear</button>
+          <button class="btn btn-green btn-sm" onclick="switchTab('players')">+ Add Players</button>
+        </div>
+      </div>
+
+      <!-- Team summary bar -->
+      <div class="team-summary-bar">
+        <div class="team-slot-count">Squad: <span id="squadCount">0</span>/15</div>
+        <div class="team-slot-count">Value: <span id="squadValue">£0.0m</span></div>
+        <div class="team-slot-count">Proj Pts: <span id="squadProjPts">0</span></div>
+      </div>
+
+      <!-- Pitch view by position -->
+      <div class="team-pitch" id="teamPitchArea">
+        <div id="pitchGKP" class="team-row" style="margin-bottom:0.4rem;"></div>
+        <div id="pitchDEF" class="team-row"></div>
+        <div id="pitchMID" class="team-row"></div>
+        <div id="pitchFWD" class="team-row"></div>
+        <div style="border-top:1px dashed var(--border);margin:0.75rem 0;"></div>
+        <div style="font-family:var(--font-data);font-size:0.6rem;color:var(--text-sub);letter-spacing:1px;text-align:center;margin-bottom:0.5rem;">BENCH</div>
+        <div id="pitchBench" class="team-row"></div>
+      </div>
+
+      <!-- Player list in team -->
+      <div class="card" id="teamListArea">
+        <div class="empty-state">
+          <div class="icon">👕</div>
+          <h3>SQUAD IS EMPTY</h3>
+          <p>Head to the Players tab and add up to 15 players to build your squad.</p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- TAB 4: TRANSFERS                                         -->
+    <!-- ======================================================== -->
+    <div class="tab-panel" id="tab-transfers">
+
+      <div class="section-header">
+        <span class="section-title">TRANSFER INTEL</span>
+        <div class="section-line"></div>
+      </div>
+
+      <!-- Transfer suggestions list -->
+      <div class="card" id="transferArea">
+        <div class="empty-state">
+          <div class="icon">⇄</div>
+          <h3>NO SQUAD TO ANALYSE</h3>
+          <p>Build your team first. Then the AI will suggest smarter replacements based on form, fixtures, and price.</p>
+        </div>
+      </div>
+
+      <!-- Most-transferred in this GW -->
+      <div class="section-header" style="margin-top:1.5rem;">
+        <span class="section-title">GW TRANSFER TRENDS</span>
+        <div class="section-line"></div>
+      </div>
+      <div class="grid-2" style="gap:1rem;">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">TRANSFERS IN</span>
+            <span class="card-badge badge-green">THIS GW</span>
+          </div>
+          <div id="transfersInList">Loading...</div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">TRANSFERS OUT</span>
+            <span class="card-badge badge-red">THIS GW</span>
+          </div>
+          <div id="transfersOutList">Loading...</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- TAB 5: FIXTURES                                          -->
+    <!-- ======================================================== -->
+    <div class="tab-panel" id="tab-fixtures">
+
+      <div class="section-header">
+        <span class="section-title">FIXTURES</span>
+        <div class="section-line"></div>
+        <select class="filter-select" id="fixtureGwSelect" onchange="renderFixtures()"></select>
+      </div>
+
+      <div class="card" id="fixturesArea">
+        <div style="text-align:center;padding:2rem;color:var(--text-sub);">Loading fixtures...</div>
+      </div>
+
+      <!-- FDR legend -->
+      <div style="display:flex;gap:0.5rem;align-items:center;margin-top:0.75rem;flex-wrap:wrap;">
+        <span style="font-family:var(--font-data);font-size:0.6rem;color:var(--text-sub);letter-spacing:1px;">FDR:</span>
+        <span class="fdr fdr-1">1 Easy</span>
+        <span class="fdr fdr-2">2</span>
+        <span class="fdr fdr-3">3 Med</span>
+        <span class="fdr fdr-4">4</span>
+        <span class="fdr fdr-5">5 Hard</span>
+      </div>
+
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- TAB 6: LIVE GW                                           -->
+    <!-- ======================================================== -->
+    <div class="tab-panel" id="tab-live">
+
+      <div class="section-header">
+        <span class="section-title">LIVE GAMEWEEK</span>
+        <div class="section-line"></div>
+        <button class="refresh-btn" onclick="fetchLive()" id="liveRefreshBtn">↻ REFRESH</button>
+      </div>
+
+      <!-- Live stats row -->
+      <div class="grid-3" style="margin-bottom:1rem;">
+        <div class="stat-tile green">
+          <div class="stat-label">My Squad Live Pts</div>
+          <div class="stat-value green" id="liveSquadPts">—</div>
+          <div class="stat-sub">incl. captain ×2</div>
+        </div>
+        <div class="stat-tile amber">
+          <div class="stat-label">GW Highest</div>
+          <div class="stat-value amber" id="liveGwHighest">—</div>
+          <div class="stat-sub">Game max score</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-label">GW Average</div>
+          <div class="stat-value" id="liveGwAvg">—</div>
+          <div class="stat-sub">All managers</div>
+        </div>
+      </div>
+
+      <!-- Live player points table -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">YOUR SQUAD · LIVE POINTS</span>
+          <span class="card-badge badge-green" id="liveUpdateBadge">—</span>
+        </div>
+        <div id="livePlayerList">
+          <div class="empty-state">
+            <div class="icon">◎</div>
+            <h3>WAITING FOR GW DATA</h3>
+            <p>Live points load when a gameweek is active. Make sure you've built your squad in My Team.</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
