@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no"/>
+  <meta name="theme-color" content="#00e676"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <title>FPL CORTEX</title>
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="manifest" href="/manifest.json"/>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%2300e676'/><text y='.9em' font-size='80' x='10' fill='%23060a12' font-family='serif' font-weight='bold'>F</text></svg>"/>
+</head>
+<body>
+
+<!-- Loading -->
+<div class="loading-screen" id="loadingScreen">
+  <div class="loading-logo">FPL <span>CORTEX</span></div>
+  <div class="loading-bar-wrap"><div class="loading-bar" id="loadingBar"></div></div>
+  <div class="loading-msg" id="loadingMsg">CONNECTING TO FPL API...</div>
+</div>
+
+<!-- Connect Modal -->
+<div class="modal-backdrop" id="loginModal" style="display:none">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">CONNECT FPL ACCOUNT</div>
+      <button class="modal-close" id="loginModalClose">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:.8rem;color:var(--text-sub);margin-bottom:1rem;line-height:1.6">Enter your Team ID or search by name. No password needed.</p>
+      <div class="modal-note" style="margin-bottom:1rem">
+        📌 Find your Team ID: <strong style="color:var(--text)">fantasy.premierleague.com</strong> → Points → URL:
+        <span style="color:var(--green);font-family:var(--font-data);font-size:.65rem;display:block;margin-top:4px">/entry/<strong>123456</strong>/event/...</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label">TEAM ID</label>
+        <input class="form-input" type="number" id="loginTeamId" placeholder="e.g. 1234567" inputmode="numeric"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">OR SEARCH BY MANAGER / TEAM NAME</label>
+        <div style="display:flex;gap:.5rem">
+          <input class="form-input" type="text" id="managerSearchInput" placeholder="e.g. Candelar" style="flex:1"/>
+          <button class="btn btn-outline btn-sm" id="managerSearchBtn">Search</button>
+        </div>
+      </div>
+      <div id="managerSearchResults" style="display:none;margin-bottom:.75rem;max-height:200px;overflow-y:auto"></div>
+      <div class="login-error" id="loginError" style="display:none"></div>
+      <button class="btn btn-green" id="loginSubmitBtn" style="width:100%;justify-content:center">CONNECT TEAM</button>
+      <div style="margin-top:1rem;text-align:center">
+        <button class="btn btn-outline btn-sm" id="loginSkipBtn">Skip — build squad manually</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Player Action Sheet -->
+<div class="action-sheet-backdrop" id="actionSheetBackdrop" style="display:none">
+  <div class="action-sheet">
+    <div class="action-sheet-handle"></div>
+    <div class="action-sheet-player" id="actionPlayerName">Player</div>
+    <div class="action-sheet-sub" id="actionPlayerSub">Position · Team</div>
+    <div class="action-sheet-btns">
+      <button class="action-btn action-captain" id="actionSetCaptain">⭐ Set as Captain</button>
+      <button class="action-btn action-vc"      id="actionSetVC">🔵 Set as Vice Captain</button>
+      <button class="action-btn action-remove"  id="actionRemovePlayer">✕ Remove from Squad</button>
+      <button class="action-btn action-cancel"  id="actionCancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Header -->
+<header class="header">
+  <div class="logo">
+    <div class="logo-mark">F</div>
+    <div class="logo-text">FPL <span>CORTEX</span></div>
+  </div>
+  <div class="header-meta">
+    <span class="gw-badge" id="gwBadge">GW —</span>
+    <button class="icon-btn" id="themeBtn" title="Toggle theme">🌙</button>
+    <button class="icon-btn" id="notifBtn" title="Notifications">🔔</button>
+    <button class="icon-btn" id="installBtn" title="Install app" style="display:none">📲</button>
+    <button class="account-btn" id="accountBtn">
+      <span>👤</span><span id="accountBtnLabel">LOGIN</span>
+    </button>
+    <span class="live-dot" id="liveDot">OFFLINE</span>
+  </div>
+</header>
+
+<!-- Nav -->
+<nav class="nav-bar">
+  <button class="nav-btn active" data-tab="dashboard">⬡ Dashboard</button>
+  <button class="nav-btn" data-tab="players">◈ Players</button>
+  <button class="nav-btn" data-tab="myteam">◉ My Team</button>
+  <button class="nav-btn" data-tab="transfers">⇄ Transfers</button>
+  <button class="nav-btn" data-tab="fixtures">◷ Fixtures</button>
+  <button class="nav-btn" data-tab="scout">🔭 Scout</button>
+  <button class="nav-btn" data-tab="tools">🛠 Tools</button>
+  <button class="nav-btn" data-tab="live">◎ Live</button>
+  <button class="nav-btn" data-tab="leagues">🏆 Leagues</button>
+</nav>
+
+<main class="main">
+
+<!-- ═══════════════════════════════════════
+     DASHBOARD
+═══════════════════════════════════════ -->
+<div class="tab-panel active" id="tab-dashboard">
+
+  <div id="fplAccountBar" style="display:none" class="fpl-account-bar">
+    <div>
+      <div class="account-bar-name" id="fplManagerName">Manager</div>
+      <div class="account-bar-meta" id="fplTeamMeta">—</div>
+    </div>
+    <div style="display:flex;gap:.5rem">
+      <button class="btn btn-outline btn-sm" id="dashImportBtn">↓ Import</button>
+      <button class="btn btn-outline btn-sm" id="dashLogoutBtn">Logout</button>
+    </div>
+  </div>
+
+  <div class="grid-4" style="margin-bottom:1rem">
+    <div class="stat-tile green"><div class="stat-label">Projected Pts</div><div class="stat-value green" id="dashProjected">—</div><div class="stat-sub">Starters only</div></div>
+    <div class="stat-tile amber"><div class="stat-label">Captain xPts</div><div class="stat-value amber" id="dashCaptainPts">—</div><div class="stat-sub" id="dashCaptainName">No Captain</div></div>
+    <div class="stat-tile blue"><div class="stat-label">Team Value</div><div class="stat-value blue" id="dashValue">—</div><div class="stat-sub" id="dashPlayerCount">0 / 15</div></div>
+    <div class="stat-tile"><div class="stat-label">GW Avg</div><div class="stat-value" id="dashGwAvg">—</div><div class="stat-sub">League avg</div></div>
+  </div>
+
+  <!-- Season Stats (login needed) -->
+  <div id="seasonStatsSection" style="display:none;margin-bottom:1rem">
+    <div class="grid-4">
+      <div class="stat-tile green"><div class="stat-label">Season Total</div><div class="stat-value green" id="statSeasonTotal">—</div><div class="stat-sub">All GWs</div></div>
+      <div class="stat-tile amber"><div class="stat-label">Best GW</div><div class="stat-value amber" id="statBestGW">—</div><div class="stat-sub" id="statBestGWNum">GW —</div></div>
+      <div class="stat-tile blue"><div class="stat-label">Overall Rank</div><div class="stat-value blue" id="statOverallRank">—</div><div class="stat-sub">Current</div></div>
+      <div class="stat-tile"><div class="stat-label">Chip Status</div><div class="stat-value" id="statChipsLeft" style="font-size:1.4rem">—</div><div class="stat-sub">remaining</div></div>
+    </div>
+  </div>
+
+  <!-- GW History Chart (login needed) -->
+  <div id="historyChartSection" style="display:none;margin-bottom:1.25rem">
+    <div class="section-header">
+      <span class="section-title">GW HISTORY</span><div class="section-line"></div>
+      <div style="display:flex;gap:.4rem">
+        <button class="chart-toggle active" data-chart="points" id="chartTogglePts">Pts</button>
+        <button class="chart-toggle" data-chart="rank" id="chartToggleRank">Rank</button>
+      </div>
+    </div>
+    <div class="card" id="historyChartArea"><div style="color:var(--text-sub);text-align:center;padding:1rem;font-size:.8rem">Connect your FPL account to see history</div></div>
+  </div>
+
+  <div class="section-header">
+    <span class="section-title">CAPTAIN AI</span><div class="section-line"></div>
+    <button class="btn btn-amber btn-sm" id="captainBtn">⚡ AUTO PICK</button>
+  </div>
+  <div id="captainArea"><div class="empty-state"><div class="icon">🎖</div><h3>NO SQUAD</h3><p>Import or add players first.</p></div></div>
+
+  <div class="section-header" style="margin-top:1.5rem">
+    <span class="section-title">RISK ANALYSIS</span><div class="section-line"></div>
+  </div>
+  <div id="riskArea"><div class="card"><div class="empty-state"><div class="icon">🛡</div><h3>NO SQUAD DATA</h3><p>Build your team to see risk flags.</p></div></div></div>
+
+</div><!-- /dashboard -->
+
+<!-- ═══════════════════════════════════════
+     PLAYERS
+═══════════════════════════════════════ -->
+<div class="tab-panel" id="tab-players">
+  <div class="section-header">
+    <span class="section-title">ALL PLAYERS</span><div class="section-line"></div>
+    <button class="refresh-btn" id="refreshBtn">↻ REFRESH</button>
+  </div>
+
+  <!-- Price Changes Banner -->
+  <div id="priceChangeBanner" style="display:none;margin-bottom:.75rem"></div>
+
+  <div class="table-controls">
+    <input class="search-input" type="text" id="playerSearch" placeholder="Search player or team..."/>
+    <select class="filter-select" id="posFilter">
+      <option value="">All Pos</option><option value="GKP">GKP</option>
+      <option value="DEF">DEF</option><option value="MID">MID</option><option value="FWD">FWD</option>
+    </select>
+    <select class="filter-select" id="teamFilter"><option value="">All Teams</option></select>
+    <select class="filter-select" id="sortSelect">
+      <option value="total_points">Total Pts</option><option value="form">Form</option>
+      <option value="ep_next">xPts Next</option><option value="now_cost">Price</option>
+      <option value="selected_by_percent">Ownership</option><option value="ict_index">ICT</option>
+    </select>
+  </div>
+  <div style="font-family:var(--font-data);font-size:.65rem;color:var(--text-sub);margin-bottom:.5rem">
+    Squad: <span id="squadIndicator" style="color:var(--green)">0</span>/15 selected
+  </div>
+  <div class="player-table-wrap">
+    <table class="player-table" id="playerTable">
+      <thead><tr><th>Player</th><th>Pos</th><th>£</th><th>Form</th><th>Pts</th><th>xP</th><th>Sel%</th><th>Add</th></tr></thead>
+      <tbody id="playerTableBody"><tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text-sub)">Loading players...</td></tr></tbody>
+    </table>
+  </div>
+  <div class="pagination" id="playerPagination"></div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     MY TEAM
+═══════════════════════════════════════ -->
+<div class="tab-panel" id="tab-myteam">
+  <div class="section-header">
+    <span class="section-title">MY SQUAD</span><div class="section-line"></div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+      <button class="btn btn-outline btn-sm" id="clearTeamBtn">✕ Clear</button>
+      <button class="btn btn-outline btn-sm" id="importFplTeamBtn" style="display:none">↓ FPL</button>
+      <button class="btn btn-green btn-sm" id="addPlayersBtn">+ Players</button>
+    </div>
+  </div>
+  <div class="team-summary-bar">
+    <div class="team-slot-count">Squad: <span id="squadCount">0</span>/15</div>
+    <div class="team-slot-count">Value: <span id="squadValue">£0.0m</span></div>
+    <div class="team-slot-count">xPts: <span id="squadProjPts">0</span></div>
+    <div class="team-slot-count" id="formationDisplay" style="color:var(--amber)">—</div>
+  </div>
+  <div class="pitch-container" id="pitchContainer">
+    <div class="pitch-bg"></div>
+    <div class="pitch-markings"><div class="pitch-halfway"></div><div class="pitch-center"></div><div class="pitch-center-dot"></div><div class="pitch-box-top"></div><div class="pitch-box-bottom"></div></div>
+    <div class="pitch-players">
+      <div class="pitch-row" id="pitchFWD"></div>
+      <div class="pitch-row" id="pitchMID"></div>
+      <div class="pitch-row" id="pitchDEF"></div>
+      <div class="pitch-row" id="pitchGKP"></div>
+    </div>
+  </div>
+  <div class="bench-container">
+    <div class="bench-label">BENCH (NOT COUNTED)</div>
+    <div class="bench-row" id="pitchBench"></div>
+  </div>
+  <div style="margin-top:1rem" id="teamListArea">
+    <div class="empty-state"><div class="icon">👕</div><h3>SQUAD IS EMPTY</h3><p>Tap "+ Players" or LOGIN to import your FPL squad.</p></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     TRANSFERS
+═══════════════════════════════════════ -->
+<div class="tab-panel" id="tab-transfers">
+  <div class="section-header"><span class="section-title">TRANSFER INTEL</span><div class="section-line"></div></div>
+  <div class="card" id="transferArea"><div class="empty-state"><div class="icon">⇄</div><h3>NO SQUAD</h3><p>Build your team first for AI transfer suggestions.</p></div></div>
+  <div class="section-header" style="margin-top:1.5rem"><span class="section-title">GW TRENDS</span><div class="section-line"></div></div>
+  <div class="grid-2">
+    <div class="card"><div class="card-header"><span class="card-title">IN</span><span class="card-badge badge-green">THIS GW</span></div><div id="transfersInList">Loading...</div></div>
+    <div class="card"><div class="card-header"><span class="card-title">OUT</span><span class="card-badge badge-red">THIS GW</span></div><div id="transfersOutList">Loading...</div></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     FIXTURES
+═══════════════════════════════════════ -->
+<div class="tab-panel" id="tab-fixtures">
+
+  <!-- Blank / Double GW alerts -->
+  <div id="blankDoubleAlert" style="margin-bottom:1rem"></div>
+
+  <div class="section-header">
+    <span class="section-title">FIXTURES</span><div class="section-line"></div>
+    <select class="filter-select" id="fixtureGwSelect"></select>
+  </div>
+  <div class="card" id="fixturesArea"><div style="text-align:center;padding:2rem;color:var(--text-sub)">Loading...</div></div>
+  <div style="display:flex;gap:.5rem;align-items:center;margin-top:.75rem;flex-wrap:wrap">
+    <span style="font-family:var(--font-data);font-size:.6rem;color:var(--text-sub)">FDR:</span>
+    <span class="fdr fdr-1">1 Easy</span><span class="fdr fdr-2">2</span><span class="fdr fdr-3">3</span><span class="fdr fdr-4">4</span><span class="fdr fdr-5">5 Hard</span>
+  </div>
+
+  <!-- FDR Calendar -->
+  <div class="section-header" style="margin-top:1.5rem">
+    <span class="section-title">FDR CALENDAR</span><div class="section-line"></div>
+    <select class="filter-select" id="fdrGwCount">
+      <option value="6">Next 6 GWs</option><option value="8">Next 8 GWs</option><option value="10">Next 10 GWs</option>
+    </select>
+  </div>
+  <div id="fdrCalendarArea"><div style="text-align:center;padding:2rem;color:var(--text-sub)">Loading FDR calendar...</div></div>
+
+</div>
+
+<!-- ═══════════════════════════════════════
+     SCOUT — Differentials, Comparison, Price Changes
+═══════════════════════════════════════ -->
+<div class="tab-panel" id="tab-scout">
+
+  <!-- Price Changes -->
+  <div class="section-header">
+    <span class="section-title">PRICE CHANGES</span><div class="section-line"></div>
+    <span class="card-badge badge-green" style="font-size:.6rem">TODAY</span>
+  </div>
+  <div class="grid-2" style="margin-bottom:1.5rem">
+    <div class="card">
+      <div class="card-header"><span class="card-title">📈 RISING</span></div>
+      <div id="priceRisingList">Loading...</div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">📉 FALLING</span></div>
+      <div id="priceFallingList">Loading...</div>
+    </div>
+  </div>
+
+  <!-- Differential Picks -->
+  <div class="section-header">
+    <span class="section-title">DIFFERENTIALS</span><div class="section-line"></div>
+    <span style="font-family:var(--font-data);font-size:.62rem;color:var(--text-sub)">Under 15% owned</span>
+  </div>
+  <div class="table-controls" style="margin-bottom:.65rem">
+    <select class="filter-select" id="diffPosFilter">
+      <option value="">All Pos</option><option value="GKP">GKP</option>
+      <option value="DEF">DEF</option><option value="MID">MID</option><option value="FWD">FWD</option>
+    </select>
+    <select class="filter-select" id="diffSortFilter">
+      <option value="form">Sort: Form</option><option value="ep_next">Sort: xPts</option>
+      <option value="value_form">Sort: Value</option><option value="ict_index">Sort: ICT</option>
+    </select>
+  </div>
+  <div class="player-table-wrap" style="margin-bottom:1.5rem">
+    <table class="player-table">
+      <thead><tr><th>Player</th><th>Pos</th><th>£</th><th>Form</th><th>xPts</th><th>Own%</th><th>Next Fix</th><th>Add</th></tr></thead>
+      <tbody id="diffTableBody"><tr><td colspan="8" style="text-align:center;padding:1.5rem;color:var(--text-sub)">Loading...</td></tr></tbody>
+    </table>
+  </div>
+
+  <!-- Player Comparison -->
+  <div class="section-header">
+    <span class="section-title">PLAYER COMPARISON</span><div class="section-line"></div>
+  </div>
+  <div style="display:flex;gap:.5rem;margin-bottom:.75rem;flex-wrap:wrap">
+    <input class="search-input" type="text" id="compareSearch1" placeholder="Player 1..." style="flex:1;min-width:120px"/>
+    <input class="search-input" type="text" id="compareSearch2" placeholder="Player 2..." style="flex:1;min-width:120px"/>
+    <input class="search-input" type="text" id="compareSearch3" placeholder="Player 3 (optional)" style="flex:1;min-width:120px"/>
+    <button class="btn btn-green btn-sm" id="compareBtn">Compare</button>
+  </div>
+  <div id="compareResults"><div class="empty-state"><div class="icon">⚖</div><h3>ADD PLAYERS TO COMPARE</h3><p>Type names above and tap Compare.</p></div></div>
+
+</div>
+
+<!-- ═══════════════════════════════════════
+     TOOLS — Auto Builder, Wildcard, Chip Planner, Predictor
+═══════════════════════════════════════ -->
+<div class="tab-panel" id="tab-tools">
+
+  <!-- Auto Squad Builder -->
+  <div class="section-header">
+    <span class="section-title">AUTO SQUAD BUILDER</span><div class="section-line"></div>
+  </div>
+  <div class="card" style="margin-bottom:1.25rem">
+    <div style="display:flex;gap:.75rem;align-items:center;flex-wrap:wrap;margin-bottom:1rem">
+      <div>
+        <div class="form-label">BUDGET</div>
+        <div style="display:flex;align-items:center;gap:.4rem">
+          <span style="font-family:var(--font-data);color:var(--green)">£</span>
+          <input class="form-input" type="number" id="autoBudget" value="100" min="80" max="104" step=".5" style="width:80px;padding:.35rem .5rem"/>
+          <span style="font-family:var(--font-data);font-size:.75rem;color:var(--text-sub)">m</span>
+        </div>
+      </div>
+      <div>
+        <div class="form-label">PRIORITY</div>
+        <select class="filter-select" id="autoPriority">
+          <option value="value">Best Value</option>
+          <option value="form">Best Form</option>
+          <option value="fixtures">Best Fixtures</option>
+        </select>
+      </div>
+      <button class="btn btn-green" id="autoBuilderBtn" style="margin-top:1rem">⚡ BUILD SQUAD</button>
+    </div>
+    <div id="autoBuilderResult"><div style="color:var(--text-sub);font-size:.82rem;text-align:center;padding:.5rem">Set your budget and click Build Squad</div></div>
+  </div>
+
+  <!-- Wildcard Planner -->
+  <div class="section-header">
+    <span class="section-title">WILDCARD PLANNER</span><div class="section-line"></div>
+  </div>
+  <div class="card" style="margin-bottom:1.25rem">
+    <p style="font-size:.8rem;color:var(--text-sub);margin-bottom:.75rem">Optimised 15-player squad for the next 5 gameweeks. Uses fixture difficulty + form as primary score.</p>
+    <button class="btn btn-amber" id="wildcardBtn">🃏 GENERATE WILDCARD TEAM</button>
+    <div id="wildcardResult" style="margin-top:1rem"></div>
+  </div>
+
+  <!-- Chip Planner -->
+  <div class="section-header">
+    <span class="section-title">CHIP PLANNER</span><div class="section-line"></div>
+  </div>
+  <div class="card" style="margin-bottom:1.25rem" id="chipPlannerArea">
+    <div class="empty-state"><div class="icon">🃏</div><h3>CONNECT ACCOUNT</h3><p>Login to see your chip status and suggestions.</p></div>
+  </div>
+
+  <!-- Points Predictor -->
+  <div class="section-header">
+    <span class="section-title">POINTS PREDICTOR</span><div class="section-line"></div>
+    <span style="font-family:var(--font-data);font-size:.62rem;color:var(--text-sub)">DETAILED BREAKDOWN</span>
+  </div>
+  <div class="table-controls" style="margin-bottom:.65rem">
+    <select class="filter-select" id="predictorPosFilter">
+      <option value="">All Pos</option><option value="GKP">GKP</option>
+      <option value="DEF">DEF</option><option value="MID">MID</option><option value="FWD">FWD</option>
+    </select>
+    <select class="filter-select" id="predictorSort">
+      <option value="total">Sort: Total xPts</option><option value="goals">Sort: Goal Prob</option>
+      <option value="cs">Sort: CS Prob</option>
+    </select>
+    <button class="btn btn-outline btn-sm" id="predictorBtn">🔮 Predict</button>
+  </div>
+  <div id="predictorResults"><div class="empty-state"><div class="icon">🔮</div><h3>TAP PREDICT</h3><p>Select a position and hit Predict to see detailed point breakdowns.</p></div></div>
+
+</div>
+
+<!-- ═══════════════════════════════════════
+     LIVE GW
+═══════════════════════════════════════ -->
+<div class="tab-panel" id="tab-live">
+  <div class="section-header"><span class="section-title">LIVE GAMEWEEK</span><div class="section-line"></div><button class="refresh-btn" id="liveRefreshBtn">↻ REFRESH</button></div>
+  <div class="grid-3" style="margin-bottom:1rem">
+    <div class="stat-tile green"><div class="stat-label">My Live Pts</div><div class="stat-value green" id="liveSquadPts">—</div><div class="stat-sub">Starters + C×2</div></div>
+    <div class="stat-tile amber"><div class="stat-label">GW Highest</div><div class="stat-value amber" id="liveGwHighest">—</div><div class="stat-sub">Top score</div></div>
+    <div class="stat-tile"><div class="stat-label">GW Average</div><div class="stat-value" id="liveGwAvg">—</div><div class="stat-sub">All managers</div></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">SQUAD · LIVE</span><span class="card-badge badge-green" id="liveUpdateBadge">—</span></div>
+    <div id="livePlayerList"><div class="empty-state"><div class="icon">◎</div><h3>NO LIVE DATA</h3><p>Active during live gameweeks only.</p></div></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     LEAGUES
+═══════════════════════════════════════ -->
+<div class="tab-panel" id="tab-leagues">
+  <div class="section-header"><span class="section-title">MY LEAGUES</span><div class="section-line"></div></div>
+
+  <div id="leaguesLoginPrompt">
+    <div class="login-prompt-card">
+      <div style="font-size:2.5rem;margin-bottom:.75rem">🏆</div>
+      <h3 style="font-family:var(--font-display);font-size:1.2rem;letter-spacing:2px;margin-bottom:.5rem">LOGIN TO VIEW LEAGUES</h3>
+      <p style="color:var(--text-sub);font-size:.85rem;margin-bottom:1.25rem">Connect your FPL account to see live standings and rank tracker.</p>
+      <button class="btn btn-green" id="leaguesLoginBtn">🔑 Connect FPL Account</button>
+    </div>
+  </div>
+
+  <div id="leaguesContent" style="display:none">
+    <div id="fplEntryCard" class="entry-card" style="margin-bottom:1rem"></div>
+
+    <!-- Rank Tracker Chart -->
+    <div id="rankTrackerSection" style="margin-bottom:1.25rem">
+      <div class="section-header"><span class="section-title" style="font-size:1rem">RANK TRACKER</span><div class="section-line"></div></div>
+      <div class="card" id="rankChartArea"><div style="color:var(--text-sub);text-align:center;padding:1rem;font-size:.8rem">Loading rank history...</div></div>
+    </div>
+
+    <!-- Mini-league H2H tracker -->
+    <div id="h2hTrackerSection" style="margin-bottom:1.25rem;display:none">
+      <div class="section-header"><span class="section-title" style="font-size:1rem">MINI-LEAGUE RIVALS</span><div class="section-line"></div></div>
+      <div class="card" id="h2hTrackerArea"></div>
+    </div>
+
+    <div class="section-header"><span class="section-title" style="font-size:1rem">CLASSIC</span><div class="section-line"></div></div>
+    <div id="classicLeaguesList" class="leagues-list"></div>
+    <div class="section-header" style="margin-top:1.25rem"><span class="section-title" style="font-size:1rem">HEAD-TO-HEAD</span><div class="section-line"></div></div>
+    <div id="h2hLeaguesList" class="leagues-list"></div>
+    <div id="standingsPanel" style="display:none;margin-top:1.25rem">
+      <div class="section-header">
+        <button class="btn btn-outline btn-sm" id="standingsBackBtn">← Back</button>
+        <span class="section-title" id="standingsTitle" style="font-size:1rem">STANDINGS</span>
+        <div class="section-line"></div>
+      </div>
+      <div class="card" id="standingsTable"></div>
+      <div class="pagination" id="standingsPagination"></div>
+    </div>
+  </div>
+</div>
+
+</main>
+<script src="script.js"></script>
+</body>
+</html>
