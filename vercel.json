@@ -1,0 +1,25 @@
+{
+  "version": 2,
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin",  "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET,POST,OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type,x-fpl-cookie" }
+      ]
+    },
+    {
+      "source": "/api/players",
+      "headers": [
+        { "key": "Cache-Control", "value": "s-maxage=300, stale-while-revalidate=600" }
+      ]
+    },
+    {
+      "source": "/api/fixtures",
+      "headers": [
+        { "key": "Cache-Control", "value": "s-maxage=60, stale-while-revalidate=120" }
+      ]
+    }
+  ]
+}
