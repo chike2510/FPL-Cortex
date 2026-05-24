@@ -70,26 +70,30 @@ body{font-family:var(--font-ui);background:var(--void);color:var(--text);min-hei
 .action-cancel{background:var(--deep);color:var(--text-sub);border:1px solid var(--border)}
 
 /* Header */
-.header{position:sticky;top:0;z-index:100;background:rgba(6,10,18,.94);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:0 .85rem;display:flex;align-items:center;justify-content:space-between;height:52px}
-[data-theme="light"] .header{background:rgba(240,244,248,.94)}
-.logo{display:flex;align-items:center;gap:.45rem}
+.header{position:sticky;top:0;z-index:100;background:rgba(6,10,18,.95);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:0 .85rem;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:.5rem;height:54px}
+[data-theme="light"] .header{background:rgba(240,244,248,.95)}
+.logo{display:flex;align-items:center;gap:.45rem;flex-shrink:0}
 .logo-mark{width:30px;height:30px;background:var(--green);border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:1rem;color:#060a12;flex-shrink:0}
 .logo-text{font-family:var(--font-display);font-size:1.3rem;letter-spacing:2px;line-height:1}.logo-text span{color:var(--green)}
-.header-meta{display:flex;align-items:center;gap:.35rem;flex-wrap:nowrap;overflow:hidden}
-.gw-badge{font-family:var(--font-data);font-size:.62rem;background:var(--green-glow);color:var(--green);border:1px solid var(--green-dim);padding:3px 9px;border-radius:100px;letter-spacing:1px;flex-shrink:0}
-.icon-btn{background:none;border:1px solid var(--border);border-radius:var(--radius);padding:3px 7px;cursor:pointer;font-size:.85rem;color:var(--text-sub);transition:var(--t);touch-action:manipulation;flex-shrink:0}
+/* Centre zone — GW + deadline + live */
+.header-centre{display:flex;align-items:center;justify-content:center;gap:.4rem;min-width:0}
+/* Right zone — icon actions */
+.header-actions{display:flex;align-items:center;gap:.3rem;flex-shrink:0}
+.gw-badge{font-family:var(--font-data);font-size:.62rem;background:var(--green-glow);color:var(--green);border:1px solid var(--green-dim);padding:3px 9px;border-radius:100px;letter-spacing:1px;white-space:nowrap}
+.icon-btn{background:none;border:1px solid var(--border);border-radius:var(--radius);padding:5px 8px;cursor:pointer;font-size:.82rem;color:var(--text-sub);transition:var(--t);touch-action:manipulation;line-height:1;display:flex;align-items:center;justify-content:center}
 .icon-btn:hover{border-color:var(--green-dim);color:var(--green)}
-.account-btn{display:flex;align-items:center;gap:4px;background:var(--deep);border:1px solid var(--border);border-radius:var(--radius);padding:4px 9px;font-family:var(--font-data);font-size:.6rem;color:var(--text-sub);letter-spacing:1px;cursor:pointer;transition:var(--t);touch-action:manipulation;flex-shrink:0}
+.notif-wrap{position:relative}
+.header-notif-dot{position:absolute;top:2px;right:2px;width:7px;height:7px;background:var(--red);border-radius:50%;border:1.5px solid var(--deep)}
+.account-btn{display:flex;align-items:center;gap:4px;background:var(--deep);border:1px solid var(--border);border-radius:var(--radius);padding:5px 9px;font-family:var(--font-data);font-size:.58rem;color:var(--text-sub);letter-spacing:1px;cursor:pointer;transition:var(--t);touch-action:manipulation;white-space:nowrap}
 .account-btn:hover,.account-btn.logged-in{border-color:var(--green-dim);color:var(--green);background:var(--green-glow)}
-.live-dot{display:flex;align-items:center;gap:5px;font-family:var(--font-data);font-size:.58rem;color:var(--text-sub);letter-spacing:1px;flex-shrink:0}
-.live-dot::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--text-sub)}
+.account-icon{font-size:.75rem}
+.live-dot{display:flex;align-items:center;gap:4px;font-family:var(--font-data);font-size:.55rem;color:var(--text-sub);letter-spacing:1px;white-space:nowrap}
+.live-dot::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--text-sub);flex-shrink:0}
 .live-dot.active{color:var(--green)}.live-dot.active::before{background:var(--green);animation:pulseDot 1.5s ease-in-out infinite}
 @keyframes pulseDot{0%,100%{box-shadow:0 0 0 0 rgba(0,230,118,.6)}50%{box-shadow:0 0 0 5px rgba(0,230,118,0)}}
-
-/* Deadline Timer */
-.deadline-timer{display:flex;align-items:center;gap:4px;background:var(--red-glow);border:1px solid var(--red);border-radius:var(--radius);padding:3px 8px;flex-shrink:0}
-.deadline-label{font-family:var(--font-data);font-size:.5rem;color:var(--red);letter-spacing:1px}
-.deadline-count{font-family:var(--font-data);font-size:.65rem;color:var(--red);font-weight:700;letter-spacing:1px}
+/* Deadline Timer — compact in header-centre */
+.deadline-timer{display:flex;align-items:center;gap:3px;background:var(--red-glow);border:1px solid var(--red);border-radius:var(--radius);padding:3px 7px;flex-shrink:0}
+.deadline-count{font-family:var(--font-data);font-size:.6rem;color:var(--red);font-weight:700;letter-spacing:1px}
 .deadline-timer.urgent{animation:urgentPulse 1s ease-in-out infinite}
 @keyframes urgentPulse{0%,100%{background:var(--red-glow)}50%{background:rgba(255,23,68,.3)}}
 
