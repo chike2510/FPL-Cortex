@@ -1,0 +1,20 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/fpl",
+      "destination": "/api/fpl.js"
+    },
+    {
+      "source": "/api/:path*",
+      "destination": "/api/:path*"
+    },
+    {
+      "source": "/app",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/app/:p*",
+      "destination": "/index.html"
+    }
+  ]
+}
