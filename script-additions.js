@@ -1,0 +1,2 @@
+/* FPL Cortex runtime modules are merged into script.js.
+   This empty compatibility shim prevents stale cached HTML from loading a second initializer. */
