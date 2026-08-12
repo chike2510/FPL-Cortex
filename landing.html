@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#08111f" />
+  <meta name="description" content="FPL Cortex is a decision desk for Fantasy Premier League managers: build a squad, read the fixtures, and make the next move with evidence." />
+  <title>FPL Cortex — Make the next move with evidence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <style>
+    :root{
+      --ink:#08111f;--ink-2:#0d1a2b;--panel:#122238;--panel-2:#172b42;
+      --line:rgba(224,239,255,.14);--line-strong:rgba(72,220,240,.42);
+      --paper:#eef5f7;--muted:#9eb0c1;--quiet:#6e8195;
+      --accent:#39d7ed;--accent-2:#8ae9f3;--lime:#bce969;--amber:#f5b95c;
+      --display:'Space Grotesk',sans-serif;--body:'DM Sans',sans-serif;--mono:'Space Mono',monospace;
+      --ease:cubic-bezier(.22,.8,.24,1);
+    }
+    *,*::before,*::after{box-sizing:border-box}
+    html{scroll-behavior:smooth;background:var(--ink)}
+    body{margin:0;background:var(--ink);color:var(--paper);font:400 16px/1.55 var(--body);-webkit-font-smoothing:antialiased}
+    body::before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.18;background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px);background-size:48px 48px;mask-image:linear-gradient(to bottom,black,transparent 72%)}
+    a{color:inherit;text-decoration:none}
+    button{font:inherit}
+    .shell{position:relative;z-index:1;width:min(1180px,calc(100% - 40px));margin:0 auto}
+    .topbar{height:74px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)}
+    .brand{display:inline-flex;align-items:center;gap:10px;color:var(--paper);font:700 .9rem var(--display);letter-spacing:.08em;text-transform:uppercase}
+    .brand-mark{width:32px;height:32px;display:grid;place-items:center;border:1px solid var(--line-strong);border-radius:9px;background:rgba(57,215,237,.08)}
+    .brand-mark svg{width:20px;height:20px}
+    .brand-word span{color:var(--accent)}
+    .navlinks{display:none;align-items:center;gap:28px;color:var(--muted);font-size:.84rem}
+    .navlinks a{transition:color .18s ease}.navlinks a:hover{color:var(--paper)}
+    .top-actions{display:flex;align-items:center;gap:10px}
+    .season-chip{display:none;color:var(--muted);font:400 .62rem var(--mono);letter-spacing:.04em}
+    .button{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:44px;padding:0 17px;border:1px solid transparent;border-radius:9px;cursor:pointer;transition:transform .18s var(--ease),background .18s ease,border-color .18s ease,color .18s ease}
+    .button:hover{transform:translateY(-1px)}.button:active{transform:translateY(0) scale(.98)}
+    .button-primary{background:var(--accent);color:#06111c;font-weight:700}.button-primary:hover{background:var(--accent-2)}
+    .button-quiet{background:transparent;border-color:var(--line);color:var(--paper)}.button-quiet:hover{border-color:var(--line-strong);background:rgba(57,215,237,.06)}
+    .button-small{min-height:36px;padding:0 12px;font-size:.78rem}
+
+    .hero{display:grid;grid-template-columns:1fr;gap:42px;padding:74px 0 76px}
+    .eyebrow{display:flex;align-items:center;gap:10px;color:var(--accent);font:700 .64rem var(--mono);letter-spacing:.13em;text-transform:uppercase}
+    .eyebrow::before{content:"";width:24px;height:1px;background:var(--accent)}
+    h1,h2,h3,p{margin:0}
+    h1{max-width:720px;margin:18px 0 20px;font:600 clamp(3rem,8vw,6.3rem)/.96 var(--display);letter-spacing:-.065em}
+    .hero h1 em{font-style:normal;color:var(--accent)}
+    .hero-copy{max-width:565px;color:var(--muted);font-size:1.08rem;line-height:1.7}
+    .hero-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:30px}
+    .trust-line{display:flex;align-items:center;gap:12px;margin-top:20px;color:var(--quiet);font-size:.76rem}
+    .trust-line strong{color:var(--paper);font-weight:600}.trust-mark{width:6px;height:6px;border-radius:50%;background:var(--lime);box-shadow:0 0 0 5px rgba(188,233,105,.1)}
+    .hero-workbench{align-self:end;position:relative;padding:18px;border:1px solid var(--line-strong);border-radius:16px;background:linear-gradient(145deg,rgba(23,43,66,.98),rgba(12,27,45,.98));box-shadow:0 24px 80px rgba(0,0,0,.22)}
+    .workbench-top{display:flex;align-items:center;justify-content:space-between;padding-bottom:16px;border-bottom:1px solid var(--line)}
+    .workbench-label{color:var(--muted);font:700 .58rem var(--mono);letter-spacing:.13em;text-transform:uppercase}.workbench-status{color:var(--lime);font:700 .58rem var(--mono);letter-spacing:.06em}
+    .workbench-title{margin:18px 0 6px;font:600 1.35rem var(--display);letter-spacing:-.03em}.workbench-sub{color:var(--muted);font-size:.78rem}
+    .workbench-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:20px}
+    .metric{min-height:84px;padding:12px;background:rgba(8,17,31,.45);border:1px solid var(--line);border-radius:10px}.metric-label{color:var(--quiet);font:400 .55rem var(--mono);letter-spacing:.08em;text-transform:uppercase}.metric-value{margin-top:9px;font:600 1.25rem var(--display);letter-spacing:-.03em}.metric-value.cyan{color:var(--accent)}.metric-value.lime{color:var(--lime)}
+    .fixture-row{display:flex;align-items:center;gap:12px;margin-top:8px;padding:13px 14px;border:1px solid var(--line);border-radius:10px;background:rgba(8,17,31,.34)}.fixture-club{width:34px;height:34px;display:grid;place-items:center;border-radius:9px;background:var(--panel-2);color:var(--accent);font:700 .62rem var(--mono)}.fixture-copy{flex:1}.fixture-copy strong{display:block;font-size:.82rem}.fixture-copy span{color:var(--quiet);font-size:.68rem}.fixture-fdr{color:var(--lime);font:700 .72rem var(--mono)}
+    .scroll-note{display:none;position:absolute;right:0;bottom:23px;color:var(--quiet);font:400 .58rem var(--mono);letter-spacing:.1em;text-transform:uppercase;writing-mode:vertical-rl}
+
+    .section{padding:88px 0;border-top:1px solid var(--line)}
+    .section-heading{display:grid;grid-template-columns:1fr;gap:16px;margin-bottom:34px}.section-kicker{color:var(--accent);font:700 .62rem var(--mono);letter-spacing:.13em;text-transform:uppercase}.section h2{max-width:650px;font:600 clamp(2rem,4vw,3.5rem)/1.04 var(--display);letter-spacing:-.055em}.section-lede{max-width:470px;color:var(--muted);font-size:.98rem;line-height:1.7}
+    .workflow{display:grid;grid-template-columns:1fr;gap:10px}.workflow-step{position:relative;min-height:200px;padding:20px;border:1px solid var(--line);border-radius:12px;background:rgba(18,34,56,.58)}.workflow-step:hover{border-color:var(--line-strong)}.step-index{color:var(--accent);font:700 .64rem var(--mono)}.workflow-step h3{margin:46px 0 7px;font:600 1.22rem var(--display);letter-spacing:-.03em}.workflow-step p{color:var(--muted);font-size:.84rem;line-height:1.55}.step-line{position:absolute;left:20px;right:20px;top:60px;height:1px;background:linear-gradient(90deg,var(--accent),transparent)}
+    .feature-grid{display:grid;grid-template-columns:1fr;gap:10px}.feature{min-height:190px;padding:21px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}.feature:hover{border-color:var(--line-strong)}.feature-icon{width:34px;height:34px;display:grid;place-items:center;border:1px solid var(--line-strong);border-radius:8px;color:var(--accent);background:rgba(57,215,237,.06)}.feature-icon svg{width:17px;height:17px}.feature h3{margin:25px 0 7px;font:600 1.08rem var(--display)}.feature p{color:var(--muted);font-size:.82rem;line-height:1.6}
+
+    .proof-section{display:grid;grid-template-columns:1fr;gap:22px;align-items:stretch}.proof-panel{padding:26px;border:1px solid var(--line-strong);border-radius:14px;background:linear-gradient(145deg,rgba(57,215,237,.08),rgba(18,34,56,.55))}.proof-panel h2{font-size:clamp(1.8rem,4vw,3rem)}.proof-panel p{margin-top:14px;color:var(--muted);max-width:500px}.proof-list{display:grid;gap:8px;margin-top:22px}.proof-item{display:flex;align-items:center;gap:10px;color:var(--paper);font-size:.84rem}.proof-item::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--lime);box-shadow:0 0 0 4px rgba(188,233,105,.1)}.principles{display:grid;gap:10px}.principle{padding:19px;border:1px solid var(--line);border-radius:12px;background:rgba(18,34,56,.45)}.principle strong{display:block;font:600 1rem var(--display)}.principle span{display:block;margin-top:5px;color:var(--muted);font-size:.79rem}
+
+    .faq{display:grid;gap:8px}.faq details{padding:16px 18px;border:1px solid var(--line);border-radius:10px;background:rgba(18,34,56,.4)}.faq summary{cursor:pointer;font-weight:600;list-style:none}.faq summary::-webkit-details-marker{display:none}.faq summary::after{content:'+';float:right;color:var(--accent);font:700 1rem var(--mono)}.faq details[open] summary::after{content:'−'}.faq details p{max-width:720px;margin-top:12px;color:var(--muted);font-size:.82rem;line-height:1.65}
+    .final-cta{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:28px 0 88px;border-top:1px solid var(--line)}.final-cta h2{max-width:610px;font:600 clamp(2rem,4vw,3.2rem)/1.05 var(--display);letter-spacing:-.05em}.final-cta p{margin-top:8px;color:var(--muted);font-size:.88rem}
+    footer{padding:20px 0 32px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;color:var(--quiet);font-size:.75rem}footer .footer-brand{color:var(--paper);font:700 .76rem var(--display);letter-spacing:.08em;text-transform:uppercase}footer .footer-brand span{color:var(--accent)}footer nav{display:flex;gap:18px}footer nav a:hover{color:var(--paper)}
+
+    .modal-backdrop{position:fixed;inset:0;z-index:20;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(4,9,16,.78);backdrop-filter:blur(12px)}.modal-backdrop.open{display:flex}.modal{width:min(440px,100%);padding:26px;border:1px solid var(--line-strong);border-radius:16px;background:var(--panel);box-shadow:0 25px 100px rgba(0,0,0,.45)}.modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:22px}.modal h2{font:600 1.65rem var(--display);letter-spacing:-.04em}.modal-sub{margin-top:5px;color:var(--muted);font-size:.82rem}.modal-close{width:32px;height:32px;display:grid;place-items:center;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--muted);cursor:pointer}.modal-close:hover{color:var(--paper);border-color:var(--line-strong)}.form-label{display:block;margin:14px 0 6px;color:var(--muted);font:700 .58rem var(--mono);letter-spacing:.1em;text-transform:uppercase}.form-input{width:100%;height:46px;padding:0 13px;border:1px solid var(--line);border-radius:9px;background:var(--ink-2);color:var(--paper);outline:0;font:400 .9rem var(--body)}.form-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(57,215,237,.1)}.form-input::placeholder{color:var(--quiet)}.form-note{margin:15px 0;padding:11px 12px;border-left:2px solid var(--accent);background:rgba(57,215,237,.05);color:var(--muted);font-size:.76rem;line-height:1.55}.form-error{display:none;margin-top:12px;padding:10px 12px;border:1px solid rgba(245,125,125,.35);border-radius:8px;background:rgba(245,125,125,.08);color:#ffb1b1;font-size:.78rem}.form-error.show{display:block}.modal-submit{width:100%;margin-top:16px}.modal-status{min-height:18px;margin-top:10px;color:var(--quiet);font:400 .62rem var(--mono);line-height:1.5}
+    @media (min-width:700px){.shell{width:min(1180px,calc(100% - 72px))}.navlinks,.season-chip{display:flex}.hero{grid-template-columns:minmax(0,1.1fr) minmax(360px,.9fr);align-items:center;gap:70px;padding:112px 0 122px}.scroll-note{display:block}.section-heading{grid-template-columns:minmax(0,.85fr) minmax(0,.7fr);align-items:end;justify-content:space-between}.workflow{grid-template-columns:repeat(3,1fr)}.feature-grid{grid-template-columns:repeat(3,1fr)}.proof-section{grid-template-columns:minmax(0,1.1fr) minmax(300px,.75fr)}.final-cta{padding-top:34px}}
+    @media (min-width:1050px){.hero-workbench{transform:translateY(18px)}.feature-grid .feature:nth-child(2){transform:translateY(18px)}.feature-grid .feature:nth-child(3){transform:translateY(36px)}}
+    @media (max-width:560px){.topbar{height:64px}.shell{width:min(100% - 28px,1180px)}.top-actions .button{min-height:38px;padding:0 11px;font-size:.72rem}.hero{padding:68px 0 74px}.hero h1{font-size:clamp(2.8rem,15vw,4.5rem)}.hero-copy{font-size:.95rem}.hero-actions{display:grid;grid-template-columns:1fr}.workbench-grid{gap:6px}.metric{min-height:76px;padding:10px}.metric-value{font-size:1rem}.section{padding:68px 0}.final-cta{align-items:flex-start;flex-direction:column;padding-bottom:68px}footer{align-items:flex-start;flex-direction:column}footer nav{flex-wrap:wrap}}
+    @media (prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+  </style>
+</head>
+<body>
+  <header class="shell topbar">
+    <a class="brand" href="/">
+      <span class="brand-mark"><svg viewBox="0 0 40 40" fill="none" aria-hidden="true"><path d="M20 3 34 11v18L20 37 6 29V11L20 3Z" stroke="currentColor" stroke-width="2.4"/><path d="M28 14c-2-2.5-4.8-4-8-4-5.5 0-10 4.5-10 10s4.5 10 10 10c3.2 0 6-1.5 8-4" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="20" cy="20" r="2.4" fill="currentColor"/></svg></span>
+      <span class="brand-word">FPL <span>CORTEX</span></span>
+    </a>
+    <nav class="navlinks" aria-label="Primary navigation"><a href="#workflow">How it works</a><a href="#workspace">Workspace</a><a href="#principles">Principles</a></nav>
+    <div class="top-actions"><span class="season-chip">2026/27 · LIVE DATA</span><button class="button button-primary button-small" type="button" data-open-connect>Connect FPL</button></div>
+  </header>
+
+  <main>
+    <section class="shell hero">
+      <div>
+        <div class="eyebrow">FPL decision support</div>
+        <h1>Make the next move with <em>evidence.</em></h1>
+        <p class="hero-copy">FPL Cortex brings your team, the fixture run, and the relevant numbers into one calm workspace. Build deliberately. Spot the trade-off. Save the move you can defend.</p>
+        <div class="hero-actions"><button class="button button-primary" type="button" data-open-connect>Connect your FPL account <span aria-hidden="true">↗</span></button><a class="button button-quiet" href="/app">Open the workspace</a></div>
+        <div class="trust-line"><span class="trust-mark"></span><span><strong>No separate Cortex account.</strong> Your FPL account is the connection.</span></div>
+      </div>
+      <div class="hero-workbench" aria-label="Preview of the FPL Cortex workspace">
+        <div class="workbench-top"><span class="workbench-label">Decision desk / sample view</span><span class="workbench-status">● PRE-SEASON READY</span></div>
+        <div class="workbench-title">Your squad, in context.</div><div class="workbench-sub">A compact view of the numbers that shape a good FPL decision.</div>
+        <div class="workbench-grid"><div class="metric"><div class="metric-label">Team value</div><div class="metric-value">£100.0m</div></div><div class="metric"><div class="metric-label">Draft state</div><div class="metric-value cyan">15 / 15</div></div><div class="metric"><div class="metric-label">Next run</div><div class="metric-value lime">2.4</div></div></div>
+        <div class="fixture-row"><div class="fixture-club">GW1</div><div class="fixture-copy"><strong>Fixture context</strong><span>Read difficulty, minutes, form, and xPts together.</span></div><div class="fixture-fdr">READY</div></div>
+      </div>
+      <span class="scroll-note">Scroll to explore ↓</span>
+    </section>
+
+    <section class="section" id="workflow"><div class="shell"><div class="section-heading"><div><div class="section-kicker">The workflow</div><h2>Less noise. Better calls.</h2></div><p class="section-lede">Cortex is built around the real sequence of managing a team, not a wall of disconnected features.</p></div><div class="workflow"><article class="workflow-step"><span class="step-index">01 / CONNECT</span><span class="step-line"></span><h3>Bring in the real team.</h3><p>Connect through the official FPL account flow. Your password is used for the transaction, never kept in browser storage.</p></article><article class="workflow-step"><span class="step-index">02 / READ</span><span class="step-line"></span><h3>See the decision surface.</h3><p>Players, fixtures, availability, price, and team structure live beside one another before you make a move.</p></article><article class="workflow-step"><span class="step-index">03 / COMMIT</span><span class="step-line"></span><h3>Save what you mean.</h3><p>Keep a Cortex draft separate from your official team, validate it, and review the changes before sync.</p></article></div></div></section>
+
+    <section class="section" id="workspace"><div class="shell"><div class="section-heading"><div><div class="section-kicker">Inside the workspace</div><h2>Tools that earn their place.</h2></div><p class="section-lede">No fake certainty. No decorative dashboards. Just the parts of the game managers repeatedly need.</p></div><div class="feature-grid"><article class="feature"><div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V5m0 14h16M8 15l3-4 3 2 4-6"/></svg></div><h3>Fixture-first planning</h3><p>Read the next run of fixtures and difficulty before a transfer becomes a hunch.</p></article><article class="feature"><div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg></div><h3>Pre-season squad builder</h3><p>Build the 15, check the constraints, choose the XI, and keep a draft ready for review.</p></article><article class="feature"><div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v18M3 12h18"/></svg></div><h3>Player context</h3><p>Search the public season player pool without needing an account connection first.</p></article><article class="feature"><div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m5 12 4 4L19 6"/></svg></div><h3>Structured validation</h3><p>See budget, position, club-allocation, captaincy, and availability issues before you save.</p></article><article class="feature"><div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3v18m0-14h10a3 3 0 1 1 0 6H6m0 0h11a3 3 0 1 1 0 6H6"/></svg></div><h3>Transfer reasoning</h3><p>Compare the cost of a move with its likely upside, role, and fixture path.</p></article><article class="feature"><div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16v14H4zM8 9h8M8 13h5"/></svg></div><h3>Clear team state</h3><p>Cortex Draft and FPL Official Team stay visibly separate, so you always know what is live.</p></article></div></div></section>
+
+    <section class="section" id="principles"><div class="shell proof-section"><div class="proof-panel"><div class="section-kicker">A useful constraint</div><h2>Numbers first. Explanation second.</h2><p>Recommendations should come from the data and the rules of the game. Any AI layer should explain the trade-off, not invent a squad out of thin air.</p><div class="proof-list"><div class="proof-item">Public player data works before you connect an account.</div><div class="proof-item">Drafts are validated before a sync can be requested.</div><div class="proof-item">Official-team mutations require a deliberate confirmation.</div></div></div><div class="principles"><div class="principle"><strong>Private by design</strong><span>Credentials stay in the server-side connection transaction.</span></div><div class="principle"><strong>Pre-season aware</strong><span>A blank gameweek is a valid state, not a loading error.</span></div><div class="principle"><strong>Useful on mobile</strong><span>The decision surface stays legible when you are checking a team between things.</span></div></div></div></section>
+
+    <section class="section"><div class="shell"><div class="section-heading"><div><div class="section-kicker">Questions, answered</div><h2>Start with the facts.</h2></div><p class="section-lede">A straightforward product deserves a straightforward connection flow.</p></div><div class="faq"><details open><summary>Do I need a separate Cortex account?</summary><p>No. The app is designed around your FPL account. There is no Cortex signup or Cortex password to remember.</p></details><details><summary>Can I use Cortex before Gameweek 1?</summary><p>Yes. The public player pool and the pre-season squad builder do not depend on a live current gameweek.</p></details><details><summary>What happens when I connect?</summary><p>Cortex asks the server to authenticate with FPL, resolves your entry from the authenticated account, and then loads the official team state. If FPL rejects the request, the app shows that error instead of pretending the Team ID was a login.</p></details></div></div></section>
+
+    <section class="shell final-cta"><div><h2>Bring your real team. Start with the next decision.</h2><p>No separate account. No Team ID shortcut. Just the FPL connection and a better workspace.</p></div><button class="button button-primary" type="button" data-open-connect>Connect FPL account <span aria-hidden="true">↗</span></button></section>
+  </main>
+
+  <footer class="shell"><div class="footer-brand">FPL <span>CORTEX</span></div><span>Decision support for Fantasy Premier League managers.</span><nav><a href="#workflow">How it works</a><a href="/app">Open app</a></nav></footer>
+
+  <div class="modal-backdrop" id="connectModal" role="dialog" aria-modal="true" aria-labelledby="connectTitle">
+    <div class="modal">
+      <div class="modal-head"><div><h2 id="connectTitle">Connect your FPL account</h2><p class="modal-sub">Use the email and password you use on the official FPL site.</p></div><button class="modal-close" type="button" aria-label="Close" data-close-connect>×</button></div>
+      <form id="connectForm" novalidate><label class="form-label" for="landingFplEmailInput">FPL email</label><input class="form-input" id="landingFplEmailInput" type="email" autocomplete="email" placeholder="you@example.com" required /><label class="form-label" for="landingFplPasswordInput">FPL password</label><input class="form-input" id="landingFplPasswordInput" type="password" autocomplete="current-password" placeholder="Your FPL password" required /><div class="form-note">No separate Cortex account is created. Your password is sent only to the server for the FPL connection transaction, then cleared.</div><div class="form-error" id="landingConnectError" role="alert"></div><button class="button button-primary modal-submit" id="landingConnectBtn" type="submit">Connect FPL account <span aria-hidden="true">↗</span></button><div class="modal-status" id="landingConnectStatus" aria-live="polite"></div></form>
+    </div>
+  </div>
+
+  <script>
+    const connectModal=document.getElementById('connectModal');
+    const connectForm=document.getElementById('connectForm');
+    const connectError=document.getElementById('landingConnectError');
+    const connectStatus=document.getElementById('landingConnectStatus');
+    const connectButton=document.getElementById('landingConnectBtn');
+    function openConnect(){connectModal.classList.add('open');document.body.style.overflow='hidden';setTimeout(()=>document.getElementById('landingFplEmailInput')?.focus(),60)}
+    function closeConnect(){connectModal.classList.remove('open');document.body.style.overflow='';connectError.classList.remove('show');connectError.textContent='';connectStatus.textContent=''}
+    function setConnectError(message){connectError.textContent=message;connectError.classList.toggle('show',Boolean(message))}
+    document.querySelectorAll('[data-open-connect]').forEach(button=>button.addEventListener('click',openConnect));
+    document.querySelector('[data-close-connect]').addEventListener('click',closeConnect);
+    connectModal.addEventListener('click',event=>{if(event.target===connectModal)closeConnect()});
+    document.addEventListener('keydown',event=>{if(event.key==='Escape'&&connectModal.classList.contains('open'))closeConnect()});
+    connectForm.addEventListener('submit',async event=>{
+      event.preventDefault();
+      const email=document.getElementById('landingFplEmailInput').value.trim(), password=document.getElementById('landingFplPasswordInput').value;
+      if(!email||!password){setConnectError('Enter your FPL email and password.');return}
+      setConnectError('');connectStatus.textContent='Connecting to FPL…';connectButton.disabled=true;connectButton.textContent='Connecting…';
+      try{
+        const response=await fetch('/api/fpl?route=connect',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});
+        const data=await response.json().catch(()=>({}));
+        document.getElementById('landingFplPasswordInput').value='';
+        if(!response.ok||!data.ok){const messages={FPL_AUTH_FAILED:'FPL rejected those credentials. Check your email and password.',FPL_AUTH_UNSUPPORTED:'The official FPL login flow is not configured on this deployment yet.',FPL_UNAVAILABLE:'FPL is unavailable right now. Try again in a moment.',FPL_RATE_LIMITED:'FPL is rate-limiting requests. Wait a little and try again.',FPL_TEAM_NOT_FOUND:'FPL authenticated the account, but no team could be loaded.'};setConnectError(messages[data.error]||data.message||'FPL could not connect this account.');connectStatus.textContent='';return}
+        if(data.user?.entry)localStorage.setItem('fpl_entry_id',String(data.user.entry));
+        window.location.href='/app';
+      }catch(error){document.getElementById('landingFplPasswordInput').value='';setConnectError('FPL is unavailable right now. Please try again later.');connectStatus.textContent=''}
+      finally{connectButton.disabled=false;connectButton.innerHTML='Connect FPL account <span aria-hidden="true">↗</span>'}
+    });
+  </script>
+</body>
+</html>
