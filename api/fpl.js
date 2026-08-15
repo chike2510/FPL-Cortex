@@ -308,11 +308,9 @@ function safeAuthMessage(kind = '') {
 
 async function authFetch(url, options = {}, authState) {
   const headers = {
-    'User-Agent': 'Mozilla/5.0 (compatible; FPL-Cortex/1.0)',
+    'User-Agent': 'Mozilla/5.0 (Linux; Android 9; SM-G960F Build/PPR1.180610.011; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/74.0.3729.157 Mobile Safari/537.36',
     Accept: 'application/json, text/plain, */*',
     'Accept-Language': 'en-GB,en;q=0.9',
-    Origin: ACCOUNT_BASE,
-    Referer: `${ACCOUNT_BASE}/`,
     ...(options.headers || {}),
   };
   if (authState.cookies) headers.Cookie = authState.cookies;
@@ -440,7 +438,6 @@ async function postDaVinciStep(authState, payload) {
   const headers = {
     'Content-Type': 'application/json; charset=utf-8',
     Accept: 'application/json, text/plain, */*',
-    'X-Requested-With': 'XMLHttpRequest',
     interactionId: authState.interactionId,
     interactionToken: authState.interactionToken || '',
   };
@@ -473,7 +470,7 @@ async function runConfiguredFlow(authState, flow, email = '', password = '', pas
     if (typeof step === 'string') {
       if (step === 'authorize') continue;
       if (step === 'start') {
-        if (!continuingChallenge) await startDaVinci(authState);
+        if (!authState.interactionId || !authState.connectionId) await startDaVinci(authState);
         continue;
       }
       if (step === 'resume') {
