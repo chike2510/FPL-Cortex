@@ -1055,10 +1055,10 @@ function buildSquad(budget,priority,size=15){
   const sel=[],teamC={},posC={GKP:0,DEF:0,MID:0,FWD:0};let spent=0;
   for(const pos of['GKP','DEF','MID','FWD']){let need=limits[pos].min;for(const p of elig){if(!need)break;if(sel.find(s=>s.id===p.id))continue;if(p.posShort!==pos)continue;if((teamC[p.team]||0)>=3)continue;if(spent+p.price>budget)continue;sel.push(p);teamC[p.team]=(teamC[p.team]||0)+1;posC[pos]++;spent+=p.price;need--;}}
   for(const p of elig){if(sel.length>=size)break;if(sel.find(s=>s.id===p.id))continue;const pos=p.posShort;if(posC[pos]>=limits[pos].max)continue;if((teamC[p.team]||0)>=3)continue;if(spent+p.price>budget)continue;sel.push(p);teamC[p.team]=(teamC[p.team]||0)+1;posC[pos]++;spent+=p.price;}
-  if(sel.length<11)return`<div style="color:var(--red);font-size:.82rem;padding:.5rem">Could not build within £${budget}m. Increase budget.</div>`;
+  if(sel.length<11)return`<div class="builder-error">Could not build a full squad within £${budget}m. Try a little more budget.</div>`;
   const totalXpts=sel.reduce((s,p)=>s+p.projectedPts,0);const byPos={GKP:sel.filter(p=>p.posShort==='GKP'),DEF:sel.filter(p=>p.posShort==='DEF'),MID:sel.filter(p=>p.posShort==='MID'),FWD:sel.filter(p=>p.posShort==='FWD')};
   const rPos=(pos,lbl)=>byPos[pos].length?`<div class="builder-pos-section"><div class="builder-pos-label"><span class="pos-chip pos-${pos}">${pos}</span> ${lbl}</div><div class="builder-result-grid">${byPos[pos].map(p=>`<div class="builder-player"><div class="builder-player-name">${p.web_name}</div><div class="builder-player-meta">${p.teamShort}·£${p.price.toFixed(1)}m·${p.projectedPts}xP</div></div>`).join('')}</div></div>`:'';
-  const html=`${rPos('GKP','Goalkeeper')}${rPos('DEF','Defenders')}${rPos('MID','Midfielders')}${rPos('FWD','Forwards')}<div class="builder-total" style="margin-top:.75rem"><div><div class="builder-total-label">TOTAL COST</div><div style="font-family:var(--font-data);color:var(--amber);font-size:1rem">£${spent.toFixed(1)}m</div></div><div style="text-align:right"><div class="builder-total-label">TOTAL xPts</div><div class="builder-total-val">${Math.round(totalXpts*10)/10}</div></div></div><button class="btn btn-green btn-sm" id="addAutoSquadBtn" style="margin-top:.5rem">+ Add This Squad</button>`;
+  const html=`<div class="builder-summary"><span>Best available mix within your budget</span><strong>${sel.length} players</strong></div>${rPos('GKP','Goalkeepers')}${rPos('DEF','Defenders')}${rPos('MID','Midfielders')}${rPos('FWD','Forwards')}<div class="builder-total"><div><div class="builder-total-label">TOTAL COST</div><strong class="builder-cost">£${spent.toFixed(1)}m</strong></div><div><div class="builder-total-label">TOTAL xPts</div><strong class="builder-total-val">${Math.round(totalXpts*10)/10}</strong></div></div><button class="button button-primary button-small" id="addAutoSquadBtn" type="button">Add this squad</button>`;
   setTimeout(()=>{el('addAutoSquadBtn')?.addEventListener('click',()=>{S.myTeam=sel.map(p=>p.id);saveTeam();renderPlayerTable();renderMyTeam();renderDashboard();alert(`Added ${sel.length} players!`);});},100);
   return html;
 }
@@ -1091,7 +1091,7 @@ function renderTransfers(){
     const suggestions=[];mp.forEach(cur=>{const best=S.players.filter(p=>p.element_type===cur.element_type&&p.id!==cur.id&&!S.myTeam.includes(p.id)&&p.price<=cur.price+0.5&&p.projectedPts>cur.projectedPts).sort((a,b)=>b.projectedPts-a.projectedPts)[0];if(best)suggestions.push({out:cur,in:best,gain:Math.round((best.projectedPts-cur.projectedPts)*10)/10});});
     suggestions.sort((a,b)=>b.gain-a.gain);const top=suggestions.slice(0,8);const fx=f=>f?`${f.home?'':'@'}${f.opponent} · GW${f.gw}`:'';
     if(!top.length)setHTML('transferArea',emptyState('','SQUAD LOOKS SOLID','No better options within the current budget.'));
-    else setHTML('transferArea',`<div class="transfer-panel-heading"><div><span class="eyebrow">Decision set</span><h2>Suggested moves</h2></div><span class="panel-meta">${top.length} options</span></div><div class="transfer-suggestion-list">${top.map(s=>`<div class="transfer-item"><div class="transfer-side transfer-out"><span class="transfer-label">Sell</span><strong>${s.out.web_name}</strong><small>${s.out.teamShort} · £${s.out.price.toFixed(1)}m · ${fx(s.out.upcomingFixtures[0])}</small></div><div class="transfer-arrow" aria-hidden="true">→</div><div class="transfer-side transfer-in"><span class="transfer-label">Buy</span><strong>${s.in.web_name}</strong><small>${s.in.teamShort} · £${s.in.price.toFixed(1)}m · ${fx(s.in.upcomingFixtures[0])}</small></div><span class="transfer-gain">+${s.gain} xP</span></div>`).join('')}</div>`);
+    else setHTML('transferArea',`<div class="transfer-panel-heading"><div><span class="eyebrow">Move ideas</span><h2>Suggested moves</h2></div><span class="panel-meta">${top.length} options</span></div><div class="transfer-suggestion-list">${top.map(s=>`<div class="transfer-item"><div class="transfer-side transfer-out"><span class="transfer-label">Sell</span><strong>${s.out.web_name}</strong><small>${s.out.teamShort} · £${s.out.price.toFixed(1)}m · ${fx(s.out.upcomingFixtures[0])}</small></div><div class="transfer-arrow" aria-hidden="true">→</div><div class="transfer-side transfer-in"><span class="transfer-label">Buy</span><strong>${s.in.web_name}</strong><small>${s.in.teamShort} · £${s.in.price.toFixed(1)}m · ${fx(s.in.upcomingFixtures[0])}</small></div><span class="transfer-gain">+${s.gain} xP</span></div>`).join('')}</div>`);
   }
   const active=S.players.filter(p=>p.transfers_in_event>0||p.transfers_out_event>0),topIn=[...active].sort((a,b)=>b.transfers_in_event-a.transfers_in_event).slice(0,8),topOut=[...active].sort((a,b)=>b.transfers_out_event-a.transfers_out_event).slice(0,8);
   const row=(p,key,color)=>{const val=p[key]||0,maxV=(key==='transfers_in_event'?(topIn[0]?.[key]||1):(topOut[0]?.[key]||1));return`<div class="market-row"><div class="market-row-main"><strong>${p.web_name}</strong><small>${p.teamShort} · £${p.price.toFixed(1)}m</small></div><strong class="market-value" style="color:${color}">${val.toLocaleString()}</strong><div class="market-bar"><span style="width:${Math.round(val/maxV*100)}%;background:${color}"></span></div></div>`;};
@@ -1562,12 +1562,11 @@ function renderTransferPlanner() {
   const saved = (() => { try { return JSON.parse(localStorage.getItem('fpl_transfer_plan') || '[]'); } catch { return []; } })();
 
   area.innerHTML = `
-    <div class="card">
-      <div class="card-header"><span class="card-title">TRANSFER PLAN</span><span class="card-badge badge-amber">NEXT 3 GWs</span></div>
-      <div id="plannerRows">${saved.length ? saved.map((row,i) => plannerRowHTML(row, i)).join('') : '<div style="color:var(--text-sub);font-size:.8rem;padding:.5rem 0">No planned transfers yet.</div>'}</div>
-      <button class="btn btn-green btn-sm" id="addPlanRowBtn" style="margin-top:.75rem">+ Add Transfer</button>
-      <div style="margin-top:.5rem;font-family:var(--font-data);font-size:.62rem;color:var(--text-sub)">COST: <span style="color:var(--green)" id="plannerCostDisplay">${saved.reduce((s,r)=>s+(parseFloat(r.cost)||0),0).toFixed(1)}m</span> net</div>
-    </div>`;
+    <section class="planner-card" aria-label="Transfer planner">
+      <div class="planner-card-head"><div><span class="eyebrow">Transfer planner</span><h3>Plan the next three GWs</h3></div><span class="planner-badge">NEXT 3 GWs</span></div>
+      <div id="plannerRows" class="planner-rows">${saved.length ? saved.map((row,i) => plannerRowHTML(row, i)).join('') : '<div class="planner-empty">No planned transfers yet.</div>'}</div>
+      <div class="planner-card-foot"><button class="button button-primary button-small" id="addPlanRowBtn" type="button">Add transfer</button><span class="planner-cost">Cost <strong id="plannerCostDisplay">${saved.reduce((s,r)=>s+(parseFloat(r.cost)||0),0).toFixed(1)}m</strong> net</span></div>
+    </section>`;
 
   el('addPlanRowBtn')?.addEventListener('click', () => {
     const rows = JSON.parse(localStorage.getItem('fpl_transfer_plan') || '[]');
@@ -1595,13 +1594,13 @@ function renderTransferPlanner() {
   });
 }
 function plannerRowHTML(row, i) {
-  return `<div style="display:grid;grid-template-columns:auto 1fr 20px 1fr auto auto;gap:.4rem;align-items:center;padding:.5rem 0;border-bottom:1px solid var(--border)">
-    <span style="font-family:var(--font-data);font-size:.6rem;color:var(--amber)">GW<input class="planner-input" data-idx="${i}" data-field="gw" type="number" value="${row.gw}" style="width:36px;background:var(--deep);border:1px solid var(--border);border-radius:4px;color:var(--amber);font-family:var(--font-data);font-size:.6rem;padding:2px 4px;text-align:center"/></span>
-    <input class="planner-input" data-idx="${i}" data-field="out" type="text" value="${row.out}" placeholder="Sell..." style="background:var(--deep);border:1px solid var(--red);border-radius:4px;color:var(--red);font-family:var(--font-ui);font-size:.75rem;padding:4px 6px"/>
-    <span style="color:var(--green);text-align:center">to</span>
-    <input class="planner-input" data-idx="${i}" data-field="in" type="text" value="${row.in}" placeholder="Buy..." style="background:var(--deep);border:1px solid var(--green-dim);border-radius:4px;color:var(--green);font-family:var(--font-ui);font-size:.75rem;padding:4px 6px"/>
-    <span style="font-family:var(--font-data);font-size:.6rem;color:var(--text-sub)">£<input class="planner-input" data-idx="${i}" data-field="cost" type="number" step=".1" value="${row.cost}" style="width:36px;background:var(--deep);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--font-data);font-size:.6rem;padding:2px 4px"/></span>
-    <button class="planner-delete" data-idx="${i}" style="background:var(--red-glow);border:1px solid var(--red);border-radius:4px;padding:3px 6px;cursor:pointer;font-size:.7rem;color:var(--red)"></button>
+  return `<div class="planner-row">
+    <label class="planner-gw">GW<input class="planner-input" data-idx="${i}" data-field="gw" type="number" value="${row.gw}" aria-label="Gameweek" /></label>
+    <label class="planner-field planner-out"><span>Sell</span><input class="planner-input" data-idx="${i}" data-field="out" type="text" value="${row.out}" placeholder="Player out" aria-label="Player to sell" /></label>
+    <span class="planner-arrow" aria-hidden="true">to</span>
+    <label class="planner-field planner-in"><span>Buy</span><input class="planner-input" data-idx="${i}" data-field="in" type="text" value="${row.in}" placeholder="Player in" aria-label="Player to buy" /></label>
+    <label class="planner-cost-input">£<input class="planner-input" data-idx="${i}" data-field="cost" type="number" step=".1" value="${row.cost}" aria-label="Net cost" /></label>
+    <button class="planner-delete" data-idx="${i}" type="button" aria-label="Remove transfer">×</button>
   </div>`;
 }
 
@@ -2681,7 +2680,7 @@ function buildJersey(p,isCap,isVC){
     const barColor = cls === 'hold' ? 'var(--green)' : cls === 'sell' ? 'var(--red)' : 'var(--gold)';
 
     const reasoning = {
-      hold:  `${p.web_name} is in excellent form (${form}) with strong projected points (${xPts}) next GW. High ownership (${ownership}%) means selling is a risk — a blanked captaincy could cost you serious rank. Hold unless you have a like-for-like upgrade.`,
+      hold:  `${p.web_name} is in excellent form (${form}) with strong projected points (${xPts}) next GW. High ownership (${ownership}%) means selling is a risk — a blanked captaincy could cost you rank position. Hold unless you have a like-for-like upgrade.`,
       sell:  `${p.web_name}'s form has been poor (${form}) with limited projected returns (${xPts}). With ${ownership}% ownership, the rest of the world may be ahead of you. Consider a move before the deadline.`,
       watch: `${p.web_name} is in a grey zone. Decent form (${form}) but unclear if they can sustain it. Monitor for team news before your deadline — don't panic sell but don't hold blindly either.`,
     };
