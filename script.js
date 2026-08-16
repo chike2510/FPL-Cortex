@@ -425,6 +425,8 @@ function attachListeners() {
   el('teamIdInput')?.addEventListener('keydown', e => { if(e.key==='Enter') connectTeamIdPreview(); });
   el('loginModeFpl')?.addEventListener('click', () => toggleLoginMode('fpl'));
   el('loginModeTeam')?.addEventListener('click', () => toggleLoginMode('team'));
+  el('loginModeToken')?.addEventListener('click', () => toggleLoginMode('token'));
+  el('tokenConnectBtn')?.addEventListener('click', connectRefreshToken);
   el('managerSearchBtn')?.addEventListener('click', searchManager);
   el('managerSearch')?.addEventListener('keydown', e => { if(e.key==='Enter') searchManager(); });
   el('squadDraftSearch')?.addEventListener('input', renderDraftBuilder);
@@ -1376,7 +1378,7 @@ function pickDraftPlayer(pid){
 function openModal(){const m=el('loginModal');if(m){m.classList.remove('hidden');m.style.display='flex';}if(el('fplEmailInput'))el('fplEmailInput').value='';if(el('fplPasswordInput'))el('fplPasswordInput').value='';if(el('fplPasscodeInput'))el('fplPasscodeInput').value='';setChallengeMode(false);toggleLoginMode('fpl');clearLoginErr();}
 function closeModal(){const m=el('loginModal');if(m){m.classList.add('hidden');m.style.display='none';}clearLoginErr();}
 function clearLoginErr(){['loginError','teamLoginError'].forEach(id=>{const e=el(id);if(e){e.style.display='none';e.textContent='';e.classList.remove('show');}})}
-function toggleLoginMode(mode){const f=el('fplLoginPanel'),t=el('teamLoginPanel'),fb=el('loginModeFpl'),tb=el('loginModeTeam');const isFpl=mode!=='team';if(f)f.style.display=isFpl?'':'none';if(t)t.style.display=isFpl?'none':'';fb?.classList.toggle('active',isFpl);tb?.classList.toggle('active',!isFpl);if(!isFpl)setChallengeMode(false);}
+function toggleLoginMode(mode){const f=el('fplLoginPanel'),t=el('teamLoginPanel'),k=el('tokenLoginPanel'),fb=el('loginModeFpl'),tb=el('loginModeTeam'),kb=el('loginModeToken'),title=el('loginTitle');const isFpl=mode==='fpl',isTeam=mode==='team';if(f)f.style.display=isFpl?'':'none';if(t)t.style.display=isTeam?'':'none';if(k)k.style.display=mode==='token'?'':'';fb?.classList.toggle('active',isFpl);tb?.classList.toggle('active',isTeam);kb?.classList.toggle('active',mode==='token');if(title)title.textContent=mode==='token'?'Connect your FPL session':'Enter your FPL credentials';if(!isFpl)setChallengeMode(false);}
 function setLoginErr(msg){const e=el('loginError');if(e){e.style.display=msg?'block':'none';e.textContent=msg||'';e.classList.toggle('show',Boolean(msg));}}
 function setChallengeMode(enabled,message=''){const panel=el('fplChallengePanel'),form=el('fplConnectForm'),input=el('fplPasscodeInput');if(panel)panel.hidden=!enabled;if(form)form.hidden=enabled;if(enabled&&message)setLoginErr(message);if(!enabled&&input)input.value='';if(enabled)window.setTimeout(()=>input?.focus(),40);}
 function handleAccountBtn(){if(S.fplEntryId) window.goTab?.('myteam'); else openModal();}
@@ -1410,6 +1412,22 @@ function finishFplConnection(data){const user=data.user||{};S.fplEntryId=user.en
 async function connectFplAccount(event){event?.preventDefault?.();const email=el('fplEmailInput')?.value.trim(), password=el('fplPasswordInput')?.value||'', btn=el('connectFplBtn');if(!email||!password){setLoginErr('Enter your FPL email and password.');return;}clearLoginErr();if(btn){btn.textContent='CONNECTING…';btn.disabled=true;}try{const {data}=await cortexApi('connect',{method:'POST',body:JSON.stringify({email,password})});if(el('fplPasswordInput'))el('fplPasswordInput').value='';if(!data.ok){if(data.error==='FPL_CHALLENGE_REQUIRED'){setChallengeMode(true,data.message||'Enter the code Premier League sent you.');return;}const messages={FPL_AUTH_FAILED:'Premier League rejected the supplied credentials.',FPL_ACCOUNT_NOT_FOUND:'No Premier League account was found for that email.',FPL_FORBIDDEN:'Premier League refused the connection.',FPL_UNAVAILABLE:'Premier League is unavailable right now. Try again in a moment.',FPL_RATE_LIMITED:'Premier League is rate-limiting requests. Wait a little and try again.',FPL_TEAM_NOT_FOUND:'The account connected, but its FPL team could not be loaded.'};setLoginErr(messages[data.error]||data.message||'FPL authentication failed.');return;}finishFplConnection(data);}catch(error){setLoginErr('Premier League is unavailable right now. Please try again later.');}finally{if(btn){btn.textContent='CONNECT FPL ACCOUNT';btn.disabled=false;}}}
 async function verifyFplChallenge(){const email=el('fplEmailInput')?.value.trim(),passcode=el('fplPasscodeInput')?.value.trim(),btn=el('fplChallengeBtn');if(!passcode){setLoginErr('Enter the verification code.');return;}clearLoginErr();if(btn){btn.textContent='VERIFYING…';btn.disabled=true;}try{const {data}=await cortexApi('challenge',{method:'POST',body:JSON.stringify({email,passcode})});if(!data.ok){setLoginErr(data.message||'That code could not be verified.');return;}if(el('fplPasscodeInput'))el('fplPasscodeInput').value='';finishFplConnection(data);}catch(error){setLoginErr('Premier League is unavailable right now. Please try again later.');}finally{if(btn){btn.textContent='VERIFY AND CONTINUE';btn.disabled=false;}}}
 
+async function connectRefreshToken(){
+  const tokenInput=el('fplRefreshTokenInput'),teamInput=el('tokenTeamIdInput'),error=el('tokenLoginError'),btn=el('tokenConnectBtn');
+  const refreshToken=(tokenInput?.value||'').trim(),teamId=(teamInput?.value||'').trim();
+  const show=(message)=>{if(error){error.textContent=message;error.classList.add('show');error.style.display='block';}};
+  if(error){error.textContent='';error.classList.remove('show');error.style.display='none';}
+  if(refreshToken.length<80){show('Paste a valid refresh token from your official FPL browser session.');return;}
+  if(teamId&&!/^\d{1,12}$/.test(teamId)){show('Enter a valid numeric Team ID or leave it blank.');return;}
+  if(btn){btn.disabled=true;btn.textContent='CONNECTING SESSION…';}
+  try{
+    const {data}=await cortexApi('token-connect',{method:'POST',body:JSON.stringify({refreshToken,teamId})});
+    if(tokenInput)tokenInput.value='';
+    if(!data.ok){show(data.message||'The FPL session could not be connected.');return;}
+    finishFplConnection(data);
+  }catch(errorValue){show(errorValue.message||'Premier League is unavailable right now.');}
+  finally{if(btn){btn.disabled=false;btn.textContent='CONNECT EXISTING SESSION';}}
+}
 async function connectTeamIdPreview(){
   const input=el('teamIdInput'), id=(input?.value||'').trim(), error=el('teamLoginError'), btn=el('teamIdConnectBtn');
   const show=(message)=>{ if(error){error.textContent=message;error.classList.add('show');error.style.display='block';} };
