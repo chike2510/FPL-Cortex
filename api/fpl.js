@@ -177,8 +177,8 @@ function responseError(res, status, code, message, extra = {}) {
 function upstreamHeaders(session, csrfToken = '') {
   const headers = { ...PUBLIC_HEADERS };
   if (session?.upstream?.cookies) headers.Cookie = session.upstream.cookies;
-  // The official FPL data client uses the raw OIDC access token in this header.
-  if (session?.upstream?.bearer) headers['X-API-Authorization'] = session.upstream.bearer;
+  // PingOne access tokens are sent to the private FPL API as a Bearer value.
+  if (session?.upstream?.bearer) headers['X-API-Authorization'] = `Bearer ${session.upstream.bearer}`;
   if (csrfToken) headers['X-CSRFToken'] = csrfToken;
   return headers;
 }
@@ -250,6 +250,70 @@ async function fetchCurrentUser(session) {
 
 async function fetchCurrentTeam(session, entryId) {
   return upstreamRequest(`/my-team/${encodeURIComponent(entryId)}/`, {}, session);
+}
+
+async function exchangeRefreshToken(refreshToken) {
+  const tokenBody = new URLSearchParams({
+    grant_type: 'refresh_token',
+    client_id: CLIENT_ID,
+    refresh_token: refreshToken,
+  });
+  const response = await fetch(`${ACCOUNT_BASE}/as/token`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Accept-Language': 'en',
+      'User-Agent': 'FPL-Cortex/1.0',
+    },
+    body: tokenBody.toString(),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.access_token) {
+    const error = new Error(data.error_description || data.error || `Token exchange returned ${response.status}`);
+    error.status = response.status || 502;
+    error.code = data.error === 'invalid_grant' ? 'FPL_TOKEN_INVALID' : 'FPL_TOKEN_EXCHANGE_FAILED';
+    throw error;
+  }
+  return {
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token || refreshToken,
+    expiresAt: Date.now() + Math.max(60, Number(data.expires_in || 3600) - 60) * 1000,
+  };
+}
+
+async function loginWithRefreshToken(refreshToken, requestedEntryId = '') {
+  const token = await exchangeRefreshToken(refreshToken);
+  const session = {
+    upstream: { bearer: token.accessToken, refreshToken: token.refreshToken, cookies: '' },
+    createdAt: Date.now(),
+    expiresAt: Date.now() + SESSION_MAX_AGE * 1000,
+    accessTokenExpiresAt: token.expiresAt,
+  };
+  const me = await fetchCurrentUser(session);
+  if (!me.ok || !me.data?.player) {
+    const error = new Error('The refreshed FPL session could not be read.');
+    error.status = me.status || 401;
+    error.code = me.status === 403 ? 'FPL_FORBIDDEN' : 'FPL_SESSION_INVALID';
+    throw error;
+  }
+  const entryId = String(requestedEntryId || me.data.player.entry || '').trim();
+  if (!/^\d{1,12}$/.test(entryId)) {
+    const error = new Error('The refreshed FPL session did not include a team entry.');
+    error.status = 422;
+    error.code = 'FPL_TEAM_NOT_FOUND';
+    throw error;
+  }
+  session.entryId = entryId;
+  session.account = { id: me.data.player.id || '', email: me.data.player.email || '' };
+  session.player = publicPlayer(me.data.player);
+  const team = await fetchCurrentTeam(session, entryId);
+  if (!team.ok) {
+    const error = new Error(team.error || 'The private FPL team could not be loaded.');
+    error.status = team.status || 401;
+    error.code = team.status === 403 ? 'FPL_FORBIDDEN' : errorCode(team.status, team.error);
+    throw error;
+  }
+  return { session, user: session.player, team: team.data, tokenExpiresAt: token.expiresAt };
 }
 
 function extractJsonAssignment(html, variableName) {
@@ -651,6 +715,29 @@ export default async function handler(req, res) {
 
   const { url, route } = requestRoute(req);
   const body = parseBody(req);
+
+  if (req.method === 'POST' && (route === 'token-connect' || body.action === 'token-connect')) {
+    const refreshToken = String(body.refreshToken || '').trim();
+    const requestedEntryId = String(body.teamId || '').trim();
+    if (refreshToken.length < 80 || refreshToken.length > 10000) {
+      return responseError(res, 400, 'FPL_TOKEN_INVALID', 'Paste a valid FPL session refresh token.');
+    }
+    try {
+      const result = await loginWithRefreshToken(refreshToken, requestedEntryId);
+      setEncryptedCookie(res, SESSION_COOKIE, result.session, SESSION_MAX_AGE);
+      clearCookie(res, CHALLENGE_COOKIE);
+      return res.status(200).json({ ok: true, user: result.user, team: result.team, entryId: result.session.entryId, tokenExpiresAt: result.tokenExpiresAt });
+    } catch (error) {
+      const code = error.code || 'FPL_TOKEN_EXCHANGE_FAILED';
+      const status = code === 'FPL_TOKEN_INVALID' || code === 'FPL_SESSION_INVALID' ? 401 : error.status || 502;
+      const message = code === 'FPL_TOKEN_INVALID' || code === 'FPL_SESSION_INVALID'
+        ? 'That FPL session token is invalid or expired. Copy a fresh one from the official FPL site.'
+        : code === 'FPL_TEAM_NOT_FOUND'
+          ? 'The session connected, but no FPL team entry was available.'
+          : 'Premier League could not complete the FPL session connection.';
+      return responseError(res, status, code, message);
+    }
+  }
 
   if (req.method === 'POST' && (route === 'connect' || body.action === 'connect' || body.action === 'login')) {
     const email = String(body.email || '').trim().toLowerCase();
