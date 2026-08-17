@@ -4,29 +4,29 @@
 
 > Sign in on the official Fantasy Premier League website. Cortex never asks for, receives, or stores your FPL password.
 
-The connection experience is deliberately browser-first. Cortex owns the pairing screen and account status, while the official Premier League site owns authentication and the browser session.
+The connection experience is deliberately browser-first. Cortex owns the pairing screen and account status, while the official Premier League site owns authentication. The companion owns the short-lived PKCE verifier and authorization-code exchange inside the browser context.
 
 ## Step 1: Start from Cortex
 
-The user opens **Connect FPL** from the dashboard, Leagues, or My Team. The modal presents a primary action named **Open official FPL sign-in**. The supporting text explains that the next step opens the official Fantasy Premier League site in a separate browser tab.
+The user opens **Connect FPL** from the dashboard, Leagues, or My Team. The modal presents a primary action named **Continue to official FPL**. When the companion is installed and enabled, that action opens the official PingOne authorization request in a separate browser tab. The request uses the whitelisted official FPL redirect, so the extension watches the return to the official FPL origin and pairs the result back to the Cortex tab.
 
 The modal also presents **Team ID preview** as a separate, clearly read-only fallback. The existing token-import route is kept out of the primary path because it is too technical for normal users.
 
 ## Step 2: Pair the browser tab
 
-When the user selects **Open official FPL sign-in**, Cortex generates a short-lived pairing state in memory and changes the modal to **Waiting for official FPL**. The user sees three short instructions:
+When the user selects **Continue to official FPL**, Cortex asks the companion to generate a short-lived PKCE verifier, state, and authorization URL. The companion opens the official PingOne authorization request and Cortex changes the modal to **Waiting for official FPL**. The user sees three short instructions:
 
 1. Sign in on the official FPL page.
 2. Return to the Cortex tab when the account page has loaded.
 3. Keep the companion installed and enabled for the connection to complete.
 
-No email, password, cookie, refresh token, or authorization code is requested by Cortex.
+No email, password, cookie, refresh token, or authorization code is requested by Cortex. The authorization code is handled only inside the companion so it can complete the PKCE exchange against the whitelisted official redirect.
 
 ## Step 3: Authenticate only on the official site
 
-The user enters credentials, completes any Premier League verification challenge, and reaches the authenticated FPL site. The companion observes the official origin only. It calls the official `/api/me/` endpoint with the browser’s existing session and extracts only a small account summary: entry ID, display name, team name, total points, overall rank, and current gameweek points.
+The user enters credentials, completes any Premier League verification challenge, and reaches the authenticated FPL site. The companion observes the official FPL origin and the redirect back to that origin only. It exchanges the returned code with the stored PKCE verifier, calls the official `/api/me/` endpoint with the resulting short-lived access token, and extracts only a small account summary: entry ID, display name, team name, total points, overall rank, and current gameweek points.
 
-The companion discards response bodies after extracting those fields. It never reads password fields, cookies, local storage, refresh tokens, or authorization codes.
+The companion discards response bodies after extracting those fields. It never reads password fields or browser cookies. The access token and authorization code remain in the companion’s in-memory operation and are not sent to Cortex, stored in local storage, or written to the server.
 
 ## Step 4: Confirm the account in Cortex
 
@@ -54,4 +54,4 @@ Disconnecting removes Cortex’s local manager summary and the companion’s pai
 
 ## Proof-of-concept limitation
 
-The current proof of concept validates the browser handoff and sanitized `/api/me/` account summary only. It does not yet provide authenticated private API access or submit transfers. Those actions require a production bridge design in which the companion performs the official-origin request after explicit confirmation, without exposing cookies or tokens to Cortex.
+The current proof of concept validates the official PingOne authorization launch, the whitelisted return to `fantasy.premierleague.com`, the local PKCE exchange, and the sanitized `/api/me/` account summary. The browser companion is still required; the Cortex website alone cannot receive the official redirect because the supplied client is registered to the official FPL callback. Private team writes remain disabled until each write is implemented as an explicit companion action.

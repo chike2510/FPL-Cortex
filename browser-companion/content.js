@@ -13,8 +13,8 @@ if (isCortexOrigin(location.origin)) {
 }
 
 window.addEventListener('message', event => {
-  if (!isCortexOrigin(event.origin) || event.data?.type !== 'CORTEX_REQUEST_FPL_SESSION') return;
-  chrome.runtime.sendMessage({ type: 'CORTEX_OPEN_FPL' }, response => {
+  if (!isCortexOrigin(event.origin) || event.data?.type !== 'CORTEX_START_OFFICIAL_AUTH') return;
+  chrome.runtime.sendMessage({ type: 'CORTEX_START_OFFICIAL_AUTH' }, response => {
     if (chrome.runtime.lastError || !response?.ok) {
       window.postMessage({ type: 'FPLCORTEX_COMPANION_ERROR', message: 'The companion could not open the official FPL site.' }, event.origin);
     }

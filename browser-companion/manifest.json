@@ -6,6 +6,7 @@
   "permissions": ["tabs", "scripting"],
   "host_permissions": [
     "https://fantasy.premierleague.com/*",
+    "https://account.premierleague.com/*",
     "https://fpl-cortex.vercel.app/*",
     "http://localhost/*",
     "http://127.0.0.1/*"
