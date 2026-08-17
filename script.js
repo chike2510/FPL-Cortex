@@ -417,13 +417,14 @@ function attachListeners() {
   // installBtn handled in index.html inline script
   el('loginModalClose')?.addEventListener('click', closeModal);
   
-  el('fplConnectForm')?.addEventListener('submit', connectFplAccount);
-  el('connectFplBtn')?.addEventListener('click', connectFplAccount);
+  el('companionConnectBtn')?.addEventListener('click', startCompanionConnection);
+  el('companionConfirmBtn')?.addEventListener('click', confirmCompanionConnection);
+  window.addEventListener('message', handleCompanionMessage);
   el('fplChallengeBtn')?.addEventListener('click', verifyFplChallenge);
   el('fplPasscodeInput')?.addEventListener('keydown', e => { if(e.key==='Enter') verifyFplChallenge(); });
   el('teamIdConnectBtn')?.addEventListener('click', connectTeamIdPreview);
   el('teamIdInput')?.addEventListener('keydown', e => { if(e.key==='Enter') connectTeamIdPreview(); });
-  el('loginModeFpl')?.addEventListener('click', () => toggleLoginMode('fpl'));
+  el('loginModeCompanion')?.addEventListener('click', () => toggleLoginMode('companion'));
   el('loginModeTeam')?.addEventListener('click', () => toggleLoginMode('team'));
   el('loginModeToken')?.addEventListener('click', () => toggleLoginMode('token'));
   el('tokenConnectBtn')?.addEventListener('click', connectRefreshToken);
@@ -1375,12 +1376,17 @@ function pickDraftPlayer(pid){
 }
 
 /* ══ FPL ACCOUNT ════════════════════════════════════════════════ */
-function openModal(){const m=el('loginModal');if(m){m.classList.remove('hidden');m.style.display='flex';}if(el('fplEmailInput'))el('fplEmailInput').value='';if(el('fplPasswordInput'))el('fplPasswordInput').value='';if(el('fplPasscodeInput'))el('fplPasscodeInput').value='';setChallengeMode(false);toggleLoginMode('fpl');clearLoginErr();}
+function openModal(){const m=el('loginModal');if(m){m.classList.remove('hidden');m.style.display='flex';}if(el('fplPasscodeInput'))el('fplPasscodeInput').value='';setChallengeMode(false);toggleLoginMode('companion');resetCompanionUI();clearLoginErr();}
 function closeModal(){const m=el('loginModal');if(m){m.classList.add('hidden');m.style.display='none';}clearLoginErr();}
 function clearLoginErr(){['loginError','teamLoginError'].forEach(id=>{const e=el(id);if(e){e.style.display='none';e.textContent='';e.classList.remove('show');}})}
-function toggleLoginMode(mode){const f=el('fplLoginPanel'),t=el('teamLoginPanel'),k=el('tokenLoginPanel'),fb=el('loginModeFpl'),tb=el('loginModeTeam'),kb=el('loginModeToken'),title=el('loginTitle');const isFpl=mode==='fpl',isTeam=mode==='team';if(f)f.style.display=isFpl?'':'none';if(t)t.style.display=isTeam?'':'none';if(k)k.style.display=mode==='token'?'':'';fb?.classList.toggle('active',isFpl);tb?.classList.toggle('active',isTeam);kb?.classList.toggle('active',mode==='token');if(title)title.textContent=mode==='token'?'Connect your FPL session':'Enter your FPL credentials';if(!isFpl)setChallengeMode(false);}
+function toggleLoginMode(mode){const c=el('companionLoginPanel'),t=el('teamLoginPanel'),k=el('tokenLoginPanel'),cb=el('loginModeCompanion'),tb=el('loginModeTeam'),kb=el('loginModeToken'),title=el('loginTitle');const isCompanion=mode==='companion',isTeam=mode==='team';if(c)c.style.display=isCompanion?'':'none';if(t)t.style.display=isTeam?'':'none';if(k)k.style.display=mode==='token'?'':'';cb?.classList.toggle('active',isCompanion);tb?.classList.toggle('active',isTeam);kb?.classList.toggle('active',mode==='token');if(title)title.textContent=mode==='token'?'Developer session tools':isTeam?'Public Team ID preview':'Connect with official FPL';if(!isCompanion)setChallengeMode(false);}
 function setLoginErr(msg){const e=el('loginError');if(e){e.style.display=msg?'block':'none';e.textContent=msg||'';e.classList.toggle('show',Boolean(msg));}}
 function setChallengeMode(enabled,message=''){const panel=el('fplChallengePanel'),form=el('fplConnectForm'),input=el('fplPasscodeInput');if(panel)panel.hidden=!enabled;if(form)form.hidden=enabled;if(enabled&&message)setLoginErr(message);if(!enabled&&input)input.value='';if(enabled)window.setTimeout(()=>input?.focus(),40);}
+function resetCompanionUI(){const status=el('companionStatus'),card=el('companionUserCard'),confirm=el('companionConfirmBtn'),btn=el('companionConnectBtn');if(status)status.textContent='Ready when you are.';if(card){card.hidden=true;card.innerHTML='';}if(confirm){confirm.hidden=true;confirm.disabled=false;}if(btn){btn.disabled=false;btn.textContent='OPEN OFFICIAL FPL SIGN-IN';}S.companionUser=null;}
+function startCompanionConnection(){const btn=el('companionConnectBtn'),status=el('companionStatus');if(btn){btn.disabled=true;btn.textContent='OPENING OFFICIAL FPL…';}if(status)status.textContent='Open the official FPL tab, finish sign-in there, then return here.';window.postMessage({type:'CORTEX_REQUEST_FPL_SESSION'},location.origin);try{window.open('https://fantasy.premierleague.com/','_blank','noopener,noreferrer');}catch(_){}window.setTimeout(()=>{if(status&&status.textContent.includes('Open the official'))status.textContent='Still waiting. If no account appears, install or enable the Cortex browser companion and try again.';if(btn){btn.disabled=false;btn.textContent='OPEN OFFICIAL FPL SIGN-IN AGAIN';}},90000);}
+function handleCompanionMessage(event){if(event.origin!==location.origin)return;if(event.data?.type==='FPLCORTEX_COMPANION_ERROR'){setLoginErr(event.data.message);return;}if(event.data?.type!=='FPLCORTEX_SESSION_FOUND'||!event.data.user?.entry)return;const user=event.data.user;S.companionUser=user;const card=el('companionUserCard'),status=el('companionStatus'),confirm=el('companionConfirmBtn');if(status)status.textContent='Official FPL session found. Confirm this team to continue.';if(card){card.hidden=false;card.innerHTML=`<strong>${escapeHTML(`${user.first_name||''} ${user.last_name||''}`.trim()||'FPL manager')}</strong><span>${escapeHTML(user.team_name||'Official FPL team')} · Entry #${Number(user.entry)}</span><small>${Number(user.summary_overall_points||0).toLocaleString()} points · Rank ${Number(user.summary_overall_rank||0).toLocaleString()}</small>`;}if(confirm)confirm.hidden=false;}
+function confirmCompanionConnection(){if(!S.companionUser)return;finishFplConnection({user:S.companionUser,companion:true});const status=el('companionStatus');if(status)status.textContent='Connected through the official FPL browser session.';}
+function escapeHTML(value){return String(value).replace(/[&<>'"`=\/]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;',"\"":'&quot;','`':'&#96;','=':'&#61;','/':'&#47;'}[char]||char));}
 function handleAccountBtn(){if(S.fplEntryId) window.goTab?.('myteam'); else openModal();}
 
 async function restorePreviewEntry(){

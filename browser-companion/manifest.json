@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "FPL Cortex Companion (Proof of Concept)",
+  "version": "0.1.0",
+  "description": "Keeps the official FPL browser session local and bridges a sanitized account result to FPL Cortex.",
+  "permissions": ["tabs", "scripting"],
+  "host_permissions": [
+    "https://fantasy.premierleague.com/*",
+    "https://fpl-cortex.vercel.app/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://fantasy.premierleague.com/*",
+        "https://fpl-cortex.vercel.app/*",
+        "http://localhost/*",
+        "http://127.0.0.1/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
