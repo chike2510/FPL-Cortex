@@ -420,6 +420,9 @@ function attachListeners() {
   window.addEventListener('message', handleCompanionMessage);
   el('fplChallengeBtn')?.addEventListener('click', verifyFplChallenge);
   el('fplPasscodeInput')?.addEventListener('keydown', e => { if(e.key==='Enter') verifyFplChallenge(); });
+  el('teamSearchBtn')?.addEventListener('click', searchPublicTeams);
+  el('teamSearchInput')?.addEventListener('keydown', e => { if(e.key==='Enter') searchPublicTeams(); });
+  el('teamSearchResults')?.addEventListener('click', e => { const button=e.target.closest('[data-team-search-id]'); if(button){ const input=el('teamIdInput'); if(input) input.value=button.dataset.teamSearchId; connectTeamIdPreview(); } });
   el('teamIdConnectBtn')?.addEventListener('click', connectTeamIdPreview);
   el('teamIdInput')?.addEventListener('keydown', e => { if(e.key==='Enter') connectTeamIdPreview(); });
   el('loginModeCompanion')?.addEventListener('click', () => toggleLoginMode('companion'));
@@ -1486,6 +1489,20 @@ async function connectRefreshToken(){
     finishFplConnection(data);
   }catch(errorValue){show(errorValue.message||'Premier League is unavailable right now.');}
   finally{if(btn){btn.disabled=false;btn.textContent='CONNECT EXISTING SESSION';}}
+}
+async function searchPublicTeams(){
+  const input=el('teamSearchInput'), area=el('teamSearchResults'), btn=el('teamSearchBtn'), query=(input?.value||'').trim();
+  if(!area||!query){if(area)area.innerHTML='<div class="team-search-hint">Enter a team name or manager name to search.</div>';return;}
+  if(query.length<3){area.innerHTML='<div class="team-search-hint">Use at least 3 characters.</div>';return;}
+  area.innerHTML='<div class="team-search-hint">Searching public FPL teams…</div>';if(btn){btn.disabled=true;btn.textContent='SEARCHING…';}
+  try{
+    const response=await fetch(`/api/fpl?route=team-search&query=${encodeURIComponent(query)}`);
+    const payload=await response.json();
+    const results=Array.isArray(payload.results)?payload.results:[];
+    if(!results.length){area.innerHTML='<div class="team-search-hint">No matching teams found. Try a shorter name or use the Team ID below.</div>';return;}
+    area.innerHTML=results.slice(0,8).map(item=>{const id=Number(item.id),name=escapeHTML(item.teamName||'Unnamed team'),manager=escapeHTML(item.realName||'Manager not listed'),country=escapeHTML(item.country||'');return `<button type="button" class="team-search-result" data-team-search-id="${id}"><span class="team-search-result-main"><strong>${name}</strong><small>${manager}${country?` · ${country}`:''}</small></span><span class="team-search-result-id">#${id}</span></button>`;}).join('');
+  }catch(error){area.innerHTML='<div class="team-search-hint">Team search is unavailable right now. Use your Team ID below.</div>';}
+  finally{if(btn){btn.disabled=false;btn.textContent='SEARCH';}}
 }
 async function connectTeamIdPreview(){
   const input=el('teamIdInput'), id=(input?.value||'').trim(), error=el('teamLoginError'), btn=el('teamIdConnectBtn');

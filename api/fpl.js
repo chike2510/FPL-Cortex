@@ -714,6 +714,20 @@ function requireSession(req, res) {
 }
 
 async function handlePublicRoute(req, res, path, url) {
+  if (path === 'team-search') {
+    const query = String(url?.searchParams.get('query') || '').trim().slice(0, 80);
+    if (query.length < 3) return responseError(res, 400, 'FPL_REQUEST_FAILED', 'A team or manager search needs at least 3 characters.');
+    try {
+      const response = await fetch(`https://api.fplbot.app/search/any?query=${encodeURIComponent(query)}`, { headers: { Accept: 'application/json' } });
+      if (!response.ok) return responseError(res, response.status || 502, 'FPL_SEARCH_UNAVAILABLE', 'The public team search is unavailable.');
+      const payload = await response.json();
+      const results = Array.isArray(payload?.hits?.exposedHits) ? payload.hits.exposedHits : [];
+      const entries = results.filter(item => item?.type === 'entry' && item?.source?.id).map(item => ({ id: Number(item.source.id), realName: item.source.realName || '', teamName: item.source.teamName || '', country: item.source.country || '' }));
+      return res.status(200).json({ ok: true, results: entries });
+    } catch (error) {
+      return responseError(res, 502, 'FPL_SEARCH_UNAVAILABLE', 'The public team search is unavailable.');
+    }
+  }
   const draftRoutes = {
     'draft-bootstrap': '/bootstrap-static',
     'draft-game': '/game',
