@@ -659,6 +659,29 @@ function renderDashboard() {
   renderRiskAnalysis(mp);
   updateCortexScore();
   if (S.gwHistory) updateSeasonStats();
+  renderPublicPulse();
+}
+
+function renderPublicPulse() {
+  const events = Array.isArray(S.bootstrap?.events) ? S.bootstrap.events : [];
+  const next = events.find(e => e.is_next) || events.find(e => !e.finished);
+  const current = events.find(e => e.is_current);
+  const topForm = [...(S.players || [])].filter(p => Number(p.formVal) > 0).sort((a,b) => Number(b.formVal) - Number(a.formVal))[0];
+  const nextFixture = (S.allFixtures || []).find(f => Number(f.event) === Number(next?.id) && !f.finished);
+  const fixtureText = nextFixture ? `${S.teams[nextFixture.team_h]?.short_name || '?'} v ${S.teams[nextFixture.team_a]?.short_name || '?'}` : 'Fixtures loading';
+  const fixtureDifficulty = nextFixture ? Math.max(Number(nextFixture.team_h_difficulty || 0), Number(nextFixture.team_a_difficulty || 0)) : 0;
+  const deadline = next?.deadline_time ? new Date(next.deadline_time) : null;
+  const deadlineText = deadline && !Number.isNaN(deadline.getTime()) ? deadline.toLocaleDateString('en-GB',{day:'numeric',month:'short'}) : '—';
+  const deadlineMeta = deadline && !Number.isNaN(deadline.getTime()) ? deadline.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) : 'Schedule unavailable';
+  setText('publicDeadline', deadlineText);
+  setText('publicDeadlineMeta', deadlineMeta);
+  setText('publicGWAverage', current?.average_entry_score ?? '—');
+  setText('publicGWAverageMeta', current ? `GW ${current.id} average` : 'Current gameweek');
+  setText('publicTopForm', topForm?.web_name || '—');
+  setText('publicTopFormMeta', topForm ? `${topForm.formVal.toFixed(1)} form · ${topForm.teamShort}` : 'Public player data');
+  setText('publicFixtureWatch', fixtureText);
+  setText('publicFixtureMeta', nextFixture ? `GW ${nextFixture.event} · difficulty ${fixtureDifficulty || '—'}` : 'Next gameweek');
+  setText('publicPulseStatus', next ? 'Live data' : 'Waiting for data');
 }
 
 /* ══ CORTEX SCORE (#31) ═════════════════════════════════════════ */
@@ -1378,11 +1401,11 @@ function pickDraftPlayer(pid){
 function openModal(){const m=el('loginModal');if(m){m.classList.remove('hidden');m.style.display='flex';}if(el('fplPasscodeInput'))el('fplPasscodeInput').value='';setChallengeMode(false);toggleLoginMode('companion');resetCompanionUI();clearLoginErr();}
 function closeModal(){const m=el('loginModal');if(m){m.classList.add('hidden');m.style.display='none';}clearLoginErr();}
 function clearLoginErr(){['loginError','teamLoginError'].forEach(id=>{const e=el(id);if(e){e.style.display='none';e.textContent='';e.classList.remove('show');}})}
-function toggleLoginMode(mode){const c=el('companionLoginPanel'),t=el('teamLoginPanel'),title=el('loginTitle');const isCompanion=mode==='companion',isTeam=mode==='team';if(c)c.style.display=isCompanion?'':'none';if(t)t.style.display=isTeam?'':'none';if(title)title.textContent=isTeam?'Team ID preview':'Connect your team';if(!isCompanion)setChallengeMode(false);}
+function toggleLoginMode(mode){const c=el('companionLoginPanel'),t=el('teamLoginPanel'),title=el('loginTitle');const isCompanion=mode==='companion',isTeam=mode==='team';if(c)c.style.display=isCompanion?'':'none';if(t)t.style.display=isTeam?'':'none';if(title)title.textContent=isTeam?'Connect with Team ID':'Connect your team';if(!isCompanion)setChallengeMode(false);}
 function setLoginErr(msg){const e=el('loginError');if(e){e.style.display=msg?'block':'none';e.textContent=msg||'';e.classList.toggle('show',Boolean(msg));}}
 function setChallengeMode(enabled,message=''){const panel=el('fplChallengePanel'),form=el('fplConnectForm'),input=el('fplPasscodeInput');if(panel)panel.hidden=!enabled;if(form)form.hidden=enabled;if(enabled&&message)setLoginErr(message);if(!enabled&&input)input.value='';if(enabled)window.setTimeout(()=>input?.focus(),40);}
 function resetCompanionUI(){const status=el('companionStatus'),card=el('companionUserCard'),confirm=el('companionConfirmBtn'),btn=el('companionConnectBtn');if(status)status.textContent='Opens in a new tab.';if(card){card.hidden=true;card.innerHTML='';}if(confirm){confirm.hidden=true;confirm.disabled=false;}if(btn){btn.disabled=false;btn.textContent='CONTINUE TO FPL';}S.companionUser=null;}
-function startCompanionConnection(){const btn=el('companionConnectBtn'),status=el('companionStatus');if(btn){btn.disabled=true;btn.textContent='OPENING…';}if(status)status.textContent='Complete sign-in in the official tab, then return here.';window.postMessage({type:'CORTEX_START_OFFICIAL_AUTH'},location.origin);window.setTimeout(()=>{if(status&&status.textContent==='Complete sign-in in the official tab, then return here.')status.textContent='Still waiting. Try again or use Team ID preview.';if(btn){btn.disabled=false;btn.textContent='TRY AGAIN';}},90000);}
+function startCompanionConnection(){const btn=el('companionConnectBtn'),status=el('companionStatus');if(btn){btn.disabled=true;btn.textContent='OPENING…';}if(status)status.textContent='Complete sign-in in the official tab, then return here.';window.postMessage({type:'CORTEX_START_OFFICIAL_AUTH'},location.origin);window.setTimeout(()=>{if(status&&status.textContent==='Complete sign-in in the official tab, then return here.')status.textContent='Still waiting. Try again or use Team ID instead.';if(btn){btn.disabled=false;btn.textContent='TRY AGAIN';}},90000);}
 function handleCompanionMessage(event){if(event.origin!==location.origin)return;if(event.data?.type==='FPLCORTEX_COMPANION_ERROR'){setLoginErr(event.data.message);const status=el('companionStatus');if(status)status.textContent='Sign-in could not be completed.';return;}if(event.data?.type==='FPLCORTEX_COMPANION_STATUS'){const status=el('companionStatus');if(status)status.textContent=event.data.message||'Official FPL session found.';return;}if(event.data?.type!=='FPLCORTEX_SESSION_FOUND'||!event.data.user?.entry)return;const user=event.data.user;S.companionUser=user;const card=el('companionUserCard'),status=el('companionStatus'),confirm=el('companionConfirmBtn');if(status)status.textContent='Official FPL session found. Confirm this team to continue.';if(card){card.hidden=false;card.innerHTML=`<strong>${escapeHTML(`${user.first_name||''} ${user.last_name||''}`.trim()||'FPL manager')}</strong><span>${escapeHTML(user.team_name||'Official FPL team')} · Entry #${Number(user.entry)}</span><small>${Number(user.summary_overall_points||0).toLocaleString()} points · Rank ${Number(user.summary_overall_rank||0).toLocaleString()}</small>`;}if(confirm)confirm.hidden=false;}
 function confirmCompanionConnection(){if(!S.companionUser)return;finishFplConnection({user:S.companionUser,companion:true});const status=el('companionStatus');if(status)status.textContent='Connected through the official FPL browser session.';}
 function escapeHTML(value){return String(value).replace(/[&<>'"`=\/]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;',"\"":'&quot;','`':'&#96;','=':'&#61;','/':'&#47;'}[char]||char));}
@@ -1392,7 +1415,7 @@ async function restorePreviewEntry(){
   if(!S.previewEntryId) return;
   try{
     const entryRes=await fplFetch(`/entry/${S.previewEntryId}/`);
-    if(!entryRes.ok) throw new Error('The saved Team ID preview is no longer available.');
+    if(!entryRes.ok) throw new Error('The saved Team ID is no longer available.');
     const entry=await entryRes.json();
     S.readOnlyPreview=true;
     S.previewPlayer={first_name:entry.player_first_name||'',last_name:entry.player_last_name||'',teamName:entry.name||'',summary_overall_points:entry.summary_overall_points,summary_overall_rank:entry.summary_overall_rank,summary_event_points:entry.summary_event_points,entry:Number(S.previewEntryId),preview:true};
@@ -1438,10 +1461,10 @@ async function connectTeamIdPreview(){
   const show=(message)=>{ if(error){error.textContent=message;error.classList.add('show');error.style.display='block';} };
   if(error){error.textContent='';error.classList.remove('show');error.style.display='none';}
   if(!/^\d{1,12}$/.test(id)){show('Enter a valid numeric FPL Team ID.');return;}
-  if(btn){btn.disabled=true;btn.textContent='LOADING PUBLIC TEAM…';}
+  if(btn){btn.disabled=true;btn.textContent='LOADING TEAM…';}
   try{
     const entryRes=await fplFetch(`/entry/${id}/`);
-    if(!entryRes.ok) throw new Error('No public FPL entry was found for that ID.');
+    if(!entryRes.ok) throw new Error('No FPL team was found for that ID.');
     const entry=await entryRes.json();
     S.fplEntryId=null; S.previewEntryId=Number(id); S.readOnlyPreview=true;
     S.previewPlayer={first_name:entry.player_first_name||'',last_name:entry.player_last_name||'',teamName:entry.name||'',summary_overall_points:entry.summary_overall_points,summary_overall_rank:entry.summary_overall_rank,summary_event_points:entry.summary_event_points,entry:Number(id),preview:true};
@@ -1452,8 +1475,8 @@ async function connectTeamIdPreview(){
     const picksRes=await fplFetch(`/entry/${id}/event/${gw}/picks/`);
     if(picksRes.ok){const picks=await picksRes.json();if(Array.isArray(picks.picks)&&picks.picks.length)applyFplTeam({picks:picks.picks});}
     updateAccountUI();closeModal();renderAll();window.goTab?.('myteam');
-  }catch(errorValue){show(errorValue.message||'The public FPL entry could not be loaded.');}
-  finally{if(btn){btn.disabled=false;btn.textContent='OPEN PUBLIC TEAM PREVIEW';}}
+  }catch(errorValue){show(errorValue.message||'The FPL team could not be loaded.');}
+  finally{if(btn){btn.disabled=false;btn.textContent='LOAD TEAM';}}
 }
 
 async function searchManager(){ return connectTeamIdPreview(); }
@@ -1466,16 +1489,16 @@ function updateAccountUI(){
   const dn=el('ddName'),ds=el('ddSub'),da=el('ddAvatar'),dsb=el('ddSignBtn'),dso=el('ddSignOut');
   if(S.fplPlayer){
     if(dn) dn.textContent=S.fplPlayer.first_name+' '+S.fplPlayer.last_name;
-    if(ds) ds.textContent = S.readOnlyPreview ? 'Public Team ID preview · read-only' : 'FPL Entry: '+S.fplEntryId;
+    if(ds) ds.textContent = S.readOnlyPreview ? 'Team ID access · read-only' : 'FPL Entry: '+S.fplEntryId;
     if(da) da.classList.add('on');
-    const sbName=el('sbName'),sbSub=el('sbSub'); if(sbName)sbName.textContent=S.fplPlayer.first_name+' '+S.fplPlayer.last_name; if(sbSub)sbSub.textContent=S.readOnlyPreview?'Public Team ID preview':'FPL account connected';
+    const sbName=el('sbName'),sbSub=el('sbSub'); if(sbName)sbName.textContent=S.fplPlayer.first_name+' '+S.fplPlayer.last_name; if(sbSub)sbSub.textContent=S.readOnlyPreview?'Team ID access':'FPL account connected';
     if(dsb) dsb.style.display='none';
     if(dso) dso.style.display='';
     // Show account bar
     const ab=el('fplAccountBar');
     if(ab){ab.style.display='flex';
       const mn=el('fplManagerName');if(mn)mn.textContent=S.fplPlayer.first_name+' '+S.fplPlayer.last_name;
-      const mt=el('fplTeamMeta');if(mt)mt.textContent = S.readOnlyPreview ? 'Public Team ID preview · Entry '+S.previewEntryId : 'FPL Entry: '+S.fplEntryId;
+      const mt=el('fplTeamMeta');if(mt)mt.textContent = S.readOnlyPreview ? 'Team ID access · Entry '+S.previewEntryId : 'FPL Entry: '+S.fplEntryId;
     }
     // Update AI hero
     if(window.updateAIHero) window.updateAIHero(S.entry||S.fplPlayer,null);
