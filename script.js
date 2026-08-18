@@ -1403,10 +1403,10 @@ function pickDraftPlayer(pid){
 }
 
 /* ══ FPL ACCOUNT ════════════════════════════════════════════════ */
-function openModal(){const m=el('loginModal');if(m){m.classList.remove('hidden');m.style.display='flex';}if(el('fplPasscodeInput'))el('fplPasscodeInput').value='';setChallengeMode(false);toggleLoginMode('companion');resetCompanionUI();clearLoginErr();}
+function openModal(){const m=el('loginModal');if(m){m.classList.remove('hidden');m.style.display='flex';}if(el('fplPasscodeInput'))el('fplPasscodeInput').value='';setChallengeMode(false);toggleLoginMode('team');resetCompanionUI();clearLoginErr();}
 function closeModal(){const m=el('loginModal');if(m){m.classList.add('hidden');m.style.display='none';}clearLoginErr();}
 function clearLoginErr(){['loginError','teamLoginError'].forEach(id=>{const e=el(id);if(e){e.style.display='none';e.textContent='';e.classList.remove('show');}})}
-function toggleLoginMode(mode){const c=el('companionLoginPanel'),t=el('teamLoginPanel'),title=el('loginTitle');const isCompanion=mode==='companion',isTeam=mode==='team';if(c)c.style.display=isCompanion?'':'none';if(t)t.style.display=isTeam?'':'none';if(title)title.textContent=isTeam?'Connect with Team ID':'Connect your team';if(!isCompanion)setChallengeMode(false);}
+function toggleLoginMode(mode){const t=el('teamLoginPanel'),title=el('loginTitle');if(t)t.style.display='';if(title)title.textContent='Connect your team';setChallengeMode(false);}
 function setLoginErr(msg){const e=el('loginError');if(e){e.style.display=msg?'block':'none';e.textContent=msg||'';e.classList.toggle('show',Boolean(msg));}}
 function setChallengeMode(enabled,message=''){const panel=el('fplChallengePanel'),form=el('fplConnectForm'),input=el('fplPasscodeInput');if(panel)panel.hidden=!enabled;if(form)form.hidden=enabled;if(enabled&&message)setLoginErr(message);if(!enabled&&input)input.value='';if(enabled)window.setTimeout(()=>input?.focus(),40);}
 function resetCompanionUI(){const status=el('companionStatus'),card=el('companionUserCard'),confirm=el('companionConfirmBtn'),btn=el('companionConnectBtn');if(status)status.textContent='Opens in a new tab.';if(card){card.hidden=true;card.innerHTML='';}if(confirm){confirm.hidden=true;confirm.disabled=false;}if(btn){btn.disabled=false;btn.textContent='CONTINUE TO FPL';}S.companionUser=null;}
