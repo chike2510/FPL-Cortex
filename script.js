@@ -138,7 +138,7 @@ const S = {
   fplEntryId:null, previewEntryId:null, previewPlayer:null, readOnlyPreview:false, fplPlayer:null, myLeagues:{classic:[],h2h:[]},
   gwHistory:null,
   currentLeagueId:null, currentLeagueType:'classic',
-  actionPid:null, substitutionMode:false, swapPid:null, deferredInstall:null, notifEnabled:false, theme:'dark',
+  actionPid:null, substitutionMode:false, swapPid:null, deferredInstall:null, notifEnabled:false, livePollInterval:null, liveSnapshot:null, liveNotifications:[], liveLastUpdated:null, theme:'dark',
   aiChatHistory:[],
   customKit:null,
   draftState:{ active:false, round:0, pickNumber:0, myPicks:[], aiPicks:[], available:[], watchlist:[], leagueSize:8, scoring:'classic' },
@@ -174,7 +174,7 @@ async function init() {
         if (S.previewEntryId) void restorePreviewEntry();
         setTimeout(hideLogo, 300);
       if (S.fplEntryId) { updateAccountUI(); fetchGWHistory(); }
-      fetchLive(); checkPriceChanges();
+        fetchLive(); startLivePolling(); checkPriceChanges();
       setTimeout(() => { try { renderSeasonPredictor(); renderMarketForecast(); } catch(e){} }, 400);
       document.dispatchEvent(new CustomEvent('fplDataReady'));
   // Render players if on that tab
@@ -203,7 +203,7 @@ async function init() {
         if (S.previewEntryId) void restorePreviewEntry();
         setTimeout(hideLogo, 200);
         if (S.fplEntryId) { updateAccountUI(); fetchGWHistory(); }
-        fetchLive(); checkPriceChanges();
+        fetchLive(); startLivePolling(); checkPriceChanges();
         setTimeout(() => { try { renderSeasonPredictor(); renderMarketForecast(); } catch(e){} }, 500);
         document.dispatchEvent(new CustomEvent('fplDataReady'));
       } catch(err) {
@@ -278,19 +278,16 @@ function applyTheme(t) { document.documentElement.setAttribute('data-theme', t);
 function toggleTheme() { applyTheme(S.theme === 'dark' ? 'light' : 'dark'); }
 
 /* ══ NOTIFICATIONS (#14) ════════════════════════════════════════ */
-async function toggleNotifications() {
-  if (!('Notification' in window)) { alert('Notifications not supported.'); return; }
-  if (Notification.permission === 'granted') { S.notifEnabled = !S.notifEnabled; el('notifBtn').textContent = S.notifEnabled ? 'NOTIF' : ''; return; }
-  const p = await Notification.requestPermission();
-  if (p === 'granted') { S.notifEnabled = true; el('notifBtn').innerHTML = '<svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"/></svg>'; new Notification('FPL Cortex ', { body: 'Price alerts enabled for your squad!' }); }
-}
-function checkPriceChanges() {
-  if (!S.notifEnabled || !Notification || Notification.permission !== 'granted') return;
-  const mp = myPlayers();
-  const risers = mp.filter(p => p.cost_change_event > 0), fallers = mp.filter(p => p.cost_change_event < 0);
-  if (risers.length) new Notification(' Price Rise!', { body: `${risers.map(p => p.web_name).join(', ')} went up!`, tag: 'rise' });
-  if (fallers.length) new Notification(' Price Drop!', { body: `${fallers.map(p => p.web_name).join(', ')} fell!`, tag: 'fall' });
-}
+function openNotificationPanel(){const panel=el('notificationPanel');if(!panel)return;panel.classList.remove('hidden');panel.style.display='block';renderNotifications();}
+function closeNotificationPanel(){const panel=el('notificationPanel');if(!panel)return;panel.classList.add('hidden');panel.style.display='none';}
+function setNotificationState(){const state=el('notificationPermissionState'),button=el('notificationEnableBtn');const supported='Notification' in window;const granted=supported&&Notification.permission==='granted';if(state)state.textContent=granted&&S.notifEnabled?'Browser alerts on':supported?'Browser alerts off':'In-app alerts only';if(button){button.textContent=granted&&S.notifEnabled?'Mute alerts':supported?'Enable alerts':'In-app alerts';button.disabled=!supported&&S.notifEnabled;}}
+async function requestBrowserNotifications(){if(!('Notification' in window)){setNotificationState();return;}if(Notification.permission==='granted'){S.notifEnabled=!S.notifEnabled;setNotificationState();return;}const permission=await Notification.requestPermission();S.notifEnabled=permission==='granted';setNotificationState();if(S.notifEnabled)sendBrowserNotification('FPL Cortex','Live FPL alerts are enabled.');}
+function toggleNotifications(){const panel=el('notificationPanel');if(panel&&!panel.classList.contains('hidden'))closeNotificationPanel();else{openNotificationPanel();setNotificationState();}}
+function sendBrowserNotification(title,body,key='live'){if(!S.notifEnabled||!('Notification' in window)||Notification.permission!=='granted')return;try{new Notification(title,{body,tag:key});}catch{}}
+function pushLiveNotification(message,type='live',key=''){const item={message,type,key:key||`${Date.now()}-${message}`,time:new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})};if(S.liveNotifications.some(n=>n.key===item.key))return;S.liveNotifications=[item,...S.liveNotifications].slice(0,30);renderNotifications();sendBrowserNotification('FPL Cortex',message,item.key);const pip=el('notifPip');if(pip)pip.classList.add('show');}
+function renderNotifications(){const list=el('notificationList');if(!list)return;if(!S.liveNotifications.length){list.innerHTML='<div class="notification-empty">Live points and bonus changes will appear here.</div>';return;}list.innerHTML=S.liveNotifications.map(n=>`<div class="notification-item notification-${n.type}"><span class="notification-item-time">${escapeHTML(n.time)}</span><strong>${escapeHTML(n.message)}</strong></div>`).join('');}
+function processLiveNotifications(previous,current){const squad=myPlayers();if(!squad.length)return;for(const p of squad){const before=previous?.[p.id]?.stats||{},after=current?.[p.id]?.stats||{};const points=Number(after.total_points||0),oldPoints=Number(before.total_points||0),bonus=Number(after.bonus||0),oldBonus=Number(before.bonus||0);if(points>oldPoints)pushLiveNotification(`${p.web_name} is now on ${points} live points.`,'points',`points-${S.currentGW}-${p.id}-${points}`);if(bonus>oldBonus)pushLiveNotification(`${p.web_name} has ${bonus} provisional bonus point${bonus===1?'':'s'}.`,'bonus',`bonus-${S.currentGW}-${p.id}-${bonus}`);if(Number(after.minutes||0)>Number(before.minutes||0)&&Number(after.minutes||0)>=60&&Number(before.minutes||0)<60)pushLiveNotification(`${p.web_name} has reached 60 minutes for the extra appearance point.`,'milestone',`mins-${S.currentGW}-${p.id}-60`);}}
+function checkPriceChanges(){const mp=myPlayers();const risers=mp.filter(p=>p.cost_change_event>0),fallers=mp.filter(p=>p.cost_change_event<0);if(risers.length)pushLiveNotification(`${risers.map(p=>p.web_name).join(', ')} rose in price.`,'market',`rise-${S.currentGW}-${risers.map(p=>p.id).join('-')}`);if(fallers.length)pushLiveNotification(`${fallers.map(p=>p.web_name).join(', ')} fell in price.`,'market',`fall-${S.currentGW}-${fallers.map(p=>p.id).join('-')}`);}
 
 /* ══ DEADLINE COUNTDOWN (#32) ═══════════════════════════════════ */
 function startDeadlineTimer() {
@@ -413,7 +410,7 @@ function attachListeners() {
   const on = (id, ev, fn) => { try { el(id)?.addEventListener(ev, fn); } catch(e) {} };
   // nav-btn handled by goTab() in index.html
   
-  el('themeBtn')?.addEventListener('click', toggleTheme); el('notifBtn')?.addEventListener('click', toggleNotifications);
+  el('themeBtn')?.addEventListener('click', toggleTheme); el('notifBtn')?.addEventListener('click', toggleNotifications); el('notificationClose')?.addEventListener('click', closeNotificationPanel); el('notificationEnableBtn')?.addEventListener('click', requestBrowserNotifications); setNotificationState();
   // installBtn handled in index.html inline script
   el('loginModalClose')?.addEventListener('click', closeModal);
   
@@ -566,18 +563,21 @@ function getUpcomingFixtures(teamId, count=3) {
   return res;
 }
 
-async function fetchLive() {
-  const btn = el('liveRefreshBtn'); if (btn) btn.classList.add('spinning');
-  const gw = S.currentGW||S.nextGW; if (!gw) { if(btn){btn.classList.remove('spinning');} return; }
+async function fetchLive({silent=false}={}) {
+  const btn = el('liveRefreshBtn'); if (btn&&!silent) btn.classList.add('spinning');
+  const gw = S.currentGW||S.nextGW; if (!gw) { if(btn&&!silent)btn.classList.remove('spinning'); return; }
   try {
     const res = await fplFetch(`/event/${gw}/live/`); if(!res.ok) throw new Error(`HTTP ${res.status}`);
     const raw = await res.json(); const map = {};
     for (const e of (raw.elements||[])) map[e.id] = e;
-    S.liveData = map; renderLivePanel(); renderMyTeam();
-    const badge = el('liveUpdateBadge'); if(badge){const n=new Date(); badge.textContent=`${pad(n.getHours())}:${pad(n.getMinutes())}`;}
-  } catch (err) { setHTML('livePlayerList', emptyState('◎','NO LIVE DATA','Active during live gameweeks.')); }
-  if (btn) { btn.classList.remove('spinning'); btn.textContent='Refresh REFRESH'; }
+    processLiveNotifications(S.liveData,map); S.liveData = map; S.liveLastUpdated = Date.now(); renderLivePanel(); renderMyTeam();
+    const badge = el('liveUpdateBadge'); if(badge){const n=new Date(); badge.textContent=`Updated ${pad(n.getHours())}:${pad(n.getMinutes())}`;}
+    setText('liveStatusLabel', 'Live data · updates every 45s');
+  } catch (err) { if(!S.liveData)setHTML('livePlayerList', emptyState('◎','NO LIVE DATA','Live player points appear during active gameweeks.')); setText('liveStatusLabel','Live data unavailable'); }
+  if (btn&&!silent) { btn.classList.remove('spinning'); btn.textContent='Refresh live'; }
 }
+function startLivePolling(){if(S.livePollInterval)clearInterval(S.livePollInterval);S.livePollInterval=setInterval(()=>{if(document.visibilityState!=='hidden')fetchLive({silent:true});},45000);}
+function stopLivePolling(){if(S.livePollInterval){clearInterval(S.livePollInterval);S.livePollInterval=null;}}
 
 async function refreshData() {
   cClear('bootstrap'); cClear('fixtures');
@@ -1148,13 +1148,14 @@ function renderFixtures(){
 
 /* ══ LIVE (#11 equiv) ═══════════════════════════════════════════ */
 function renderLivePanel(){
-  const{starters}=getSquadGroups();const mp=myPlayers();
-  if(!mp.length){setHTML('livePlayerList',emptyState('◎','NO SQUAD','Build your team first.'));return;}
-  if(!S.liveData){setHTML('livePlayerList',emptyState('◎','NO LIVE DATA','Active during live gameweeks.'));return;}
+  const area=el('livePlayerList')||el('liveSquadArea'),summary=el('liveStatsGrid');const{starters}=getSquadGroups();const mp=myPlayers();
+  if(!area)return;
+  if(!mp.length){setHTML(area.id,emptyState('◎','NO SQUAD','Build your team first.'));return;}
+  if(!S.liveData){setHTML(area.id,emptyState('◎','NO LIVE DATA','Live player points appear during active gameweeks.'));return;}
   const sorted=[...starters].sort((a,b)=>(S.liveData[b.id]?.stats?.total_points??0)-(S.liveData[a.id]?.stats?.total_points??0));
-  let total=0;
-  const rows=sorted.map(p=>{const live=S.liveData[p.id]?.stats||{},pts=live.total_points??0;const isC=p.id===S.captainId,eff=isC?pts*2:pts;total+=eff;const bd=buildPtsBreakdown(S.liveData[p.id]);const col=tc(p.teamShort);const ptColor=pts>=10?'var(--green)':pts>=6?'var(--amber)':'var(--text)';return`<div class="team-list-row"><div class="team-color-bar" style="background:${col.p}"></div><div style="flex:1;min-width:0"><div style="font-weight:700;display:flex;align-items:center;gap:4px;flex-wrap:wrap">${p.web_name}${isC?'<span class="card-badge badge-amber">Cx2</span>':''}<span class="pos-chip pos-${p.posShort}">${p.posShort}</span></div><div style="font-size:.68rem;color:var(--text-sub)">${p.teamShort}·${live.minutes??0} mins</div>${bd?`<div class="pts-breakdown">${bd}</div>`:''}</div><div style="text-align:right;flex-shrink:0"><div style="font-family:var(--font-data);font-size:1.3rem;font-weight:700;color:${ptColor}">${eff}</div></div></div>`;});
-  setHTML('livePlayerList',rows.join(''));setText('liveSquadPts',total);
+  let total=0,bonusTotal=0;
+  const rows=sorted.map(p=>{const live=S.liveData[p.id]?.stats||{},pts=Number(live.total_points||0),bonus=Number(live.bonus||0),isC=p.id===S.captainId,eff=isC?pts*2:pts;total+=eff;bonusTotal+=bonus;const bd=buildPtsBreakdown(S.liveData[p.id]);const col=tc(p.teamShort);const ptColor=pts>=10?'var(--green)':pts>=6?'var(--amber)':'var(--text)';return`<div class="team-list-row live-player-row"><div class="team-color-bar" style="background:${col.p}"></div><div style="flex:1;min-width:0"><div style="font-weight:700;display:flex;align-items:center;gap:4px;flex-wrap:wrap">${p.web_name}${isC?'<span class="card-badge badge-amber">Cx2</span>':''}<span class="pos-chip pos-${p.posShort}">${p.posShort}</span>${bonus?`<span class="live-bonus-chip">${bonus} bonus</span>`:''}</div><div style="font-size:.68rem;color:var(--text-sub)">${p.teamShort} · ${live.minutes??0} mins · BPS ${live.bps??0}</div>${bd?`<div class="pts-breakdown">${bd}</div>`:''}</div><div style="text-align:right;flex-shrink:0"><div style="font-family:var(--font-data);font-size:1.3rem;font-weight:700;color:${ptColor}">${eff}</div><small class="live-points-label">${isC?'captain pts':'live pts'}</small></div></div>`;});
+  setHTML(area.id,`<div class="live-panel-head"><div><span class="eyebrow">Current squad</span><h2>Live points</h2></div><span class="panel-meta">Provisional while matches are live</span></div>${rows.length?rows.join(''):'<div class="notification-empty">No starters selected.</div>'}`);setText('liveSquadPts',total);if(summary)summary.innerHTML=`<div><small>Squad total</small><strong>${total}</strong><span>captain included</span></div><div><small>Provisional bonus</small><strong>${bonusTotal}</strong><span>current squad</span></div><div><small>Updated</small><strong>${S.liveLastUpdated?new Date(S.liveLastUpdated).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}):'—'}</strong><span>official live feed</span></div>`;
 }
 
 /* ══ WEATHER (#22) ══════════════════════════════════════════════ */
