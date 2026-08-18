@@ -637,12 +637,37 @@ function switchTab(name) {
     leagues:   () => { renderLeaguesTab();
                        setTimeout(() => window.upgrades?.renderLeagueSeasonGraphs?.(), 200); },
     dashboard: () => renderDashboard(),
+    plus:      () => initPlusView(),
   };
   map[name]?.();
 }
 // Expose switchTab globally so script-additions.js uses the same one
 window.switchTab = switchTab;
 window.goTab = window.goTab || switchTab;
+function openPlusView(anchor='hero') {
+  initPlusView();
+  switchTab('plus');
+  const target = anchor === 'plans' ? document.getElementById('plusPlans') : document.getElementById('tab-plus');
+  if (target) window.setTimeout(() => target.scrollIntoView({ behavior:'smooth', block:'start' }), 60);
+}
+window.openPlusView = openPlusView;
+function initPlusView() {
+  document.querySelectorAll('[data-plus-action="start"]').forEach(button => {
+    if (button.dataset.plusBound) return;
+    button.dataset.plusBound = '1';
+    button.addEventListener('click', () => {
+      document.dispatchEvent(new CustomEvent('cortexPlusIntent', { detail:{ source:button } }));
+      button.textContent = 'Coming soon';
+      button.disabled = true;
+      window.setTimeout(() => { button.textContent = 'Unlock Cortex Plus'; button.disabled = false; }, 1800);
+    });
+  });
+  document.querySelectorAll('[data-plus-action="learn"]').forEach(button => {
+    if (button.dataset.plusBound) return;
+    button.dataset.plusBound = '1';
+    button.addEventListener('click', () => document.getElementById('plusPlans')?.scrollIntoView({ behavior:'smooth', block:'start' }));
+  });
+}
 
 /* ══ DASHBOARD ══════════════════════════════════════════════════ */
 function renderDashboard() {
@@ -3161,6 +3186,12 @@ function buildJersey(p,isCap,isVC){
     initSellOrHold();
     initAlerts();
     initCardView();
+    document.querySelectorAll('[data-open-plus]').forEach(button => {
+      if (button.dataset.plusBound) return;
+      button.dataset.plusBound = '1';
+      button.addEventListener('click', () => openPlusView());
+    });
+    initPlusView();
 
     // Sync strip on load and every 30s
     updateStatsStrip();
