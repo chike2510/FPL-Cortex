@@ -1,19 +1,16 @@
 {
   "name": "FPL Cortex",
-  "short_name": "FPL Cortex",
-  "description": "Your personal Fantasy Premier League analytics dashboard",
+  "short_name": "Cortex",
+  "description": "A focused Fantasy Premier League analytics dashboard.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#060a12",
-  "theme_color": "#00e676",
+  "background_color": "#07111f",
+  "theme_color": "#07111f",
   "categories": ["sports", "utilities"],
   "icons": [
-    {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='80' fill='%2300e676'/><text y='0.85em' font-size='340' x='60' fill='%23060a12' font-family='serif' font-weight='bold'>F</text></svg>",
-      "sizes": "512x512",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
-    }
+    {"src":"/icons/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},
+    {"src":"/icons/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}
   ]
 }

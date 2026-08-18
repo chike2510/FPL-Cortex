@@ -269,7 +269,7 @@ function saveTeam() {
 /* ══ PWA / SW (#13) ═════════════════════════════════════════════ */
 function registerSW() { if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {}); }
 function setupPWA() {
-  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); S.deferredInstall = e; const b = el('installBtn'); if (b) b.style.display = 'flex'; });
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); S.deferredInstall = e; const b = el('installBtn'); if (b) { b.style.display = 'flex'; b.setAttribute('aria-label','Install Cortex'); b.title='Install Cortex'; } });
   window.addEventListener('appinstalled', () => { const b = el('installBtn'); if (b) b.style.display = 'none'; });
 }
 async function installPWA() { if (!S.deferredInstall) return; S.deferredInstall.prompt(); await S.deferredInstall.userChoice; S.deferredInstall = null; }
@@ -412,7 +412,7 @@ function attachListeners() {
   // nav-btn handled by goTab() in index.html
   
   el('themeBtn')?.addEventListener('click', toggleTheme); el('notifBtn')?.addEventListener('click', toggleNotifications); el('notificationClose')?.addEventListener('click', closeNotificationPanel); el('notificationEnableBtn')?.addEventListener('click', requestBrowserNotifications); setNotificationState();
-  // installBtn handled in index.html inline script
+  on('installBtn', 'click', installPWA);
   el('loginModalClose')?.addEventListener('click', closeModal);
   
   el('companionConnectBtn')?.addEventListener('click', startCompanionConnection);
@@ -1428,7 +1428,8 @@ function pickDraftPlayer(pid){
 }
 
 /* ══ FPL ACCOUNT ════════════════════════════════════════════════ */
-function openModal(){const m=el('loginModal');if(m){m.classList.remove('hidden');m.style.display='flex';}if(el('fplPasscodeInput'))el('fplPasscodeInput').value='';setChallengeMode(false);toggleLoginMode('team');resetCompanionUI();clearLoginErr();}
+function removeLegacyConnectionUI(){ ['companionLoginPanel','companionConnectBtn','companionHero','fplChallengePanel','fplConnectForm','loginModeCompanion','connectionAlt','connectionBack'].forEach(id=>el(id)?.remove()); document.querySelectorAll('.connection-modal .companion-hero,.connection-modal .companion-status,.connection-modal .companion-steps,.connection-modal .companion-user-card').forEach(node=>node.remove()); }
+function openModal(){removeLegacyConnectionUI();const m=el('loginModal');if(m){m.classList.remove('hidden');m.style.display='flex';}if(el('fplPasscodeInput'))el('fplPasscodeInput').value='';setChallengeMode(false);toggleLoginMode('team');resetCompanionUI();clearLoginErr();}
 function closeModal(){const m=el('loginModal');if(m){m.classList.add('hidden');m.style.display='none';}clearLoginErr();}
 function clearLoginErr(){['loginError','teamLoginError'].forEach(id=>{const e=el(id);if(e){e.style.display='none';e.textContent='';e.classList.remove('show');}})}
 function toggleLoginMode(mode){const t=el('teamLoginPanel'),title=el('loginTitle');if(t)t.style.display='';if(title)title.textContent='Connect your team';setChallengeMode(false);}

@@ -1,6 +1,6 @@
 /* FPL CORTEX — Service Worker v3 (Speed Optimised) */
-const CACHE = 'fpl-cortex-v3';
-const STATIC = ['/', '/index.html', '/style.css', '/script.js', '/manifest.json'];
+const CACHE = 'fpl-cortex-v4';
+const STATIC = ['/', '/index.html', '/cortex.css', '/script.js', '/manifest.json', '/icons/icon-192.png', '/icons/icon-512.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(STATIC)).then(() => self.skipWaiting()));
