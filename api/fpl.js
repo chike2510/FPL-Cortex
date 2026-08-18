@@ -10,6 +10,7 @@
 import crypto from 'node:crypto';
 
 const FPL_BASE = 'https://fantasy.premierleague.com/api';
+const DRAFT_BASE = 'https://draft.premierleague.com/api';
 const ACCOUNT_BASE = 'https://account.premierleague.com';
 const CLIENT_ID = process.env.FPL_CLIENT_ID || 'bfcbaf69-aade-4c1b-8f00-c1cb8a193030';
 const REDIRECT_URI = process.env.FPL_REDIRECT_URI || 'https://fantasy.premierleague.com/';
@@ -207,6 +208,26 @@ function mergeCookies(existing = '', headers) {
 function cookieValue(cookieString, name) {
   const match = String(cookieString).split(';').map(part => part.trim()).find(part => part.startsWith(`${name}=`));
   return match ? match.slice(name.length + 1) : '';
+}
+
+async function draftRequest(path) {
+  const normalized = normalizePath(path);
+  const cacheKey = `draft:${normalized}`;
+  const cached = cacheGet(cacheKey);
+  if (cached) return { ok: true, status: 200, data: cached, headers: new Headers() };
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  try {
+    const response = await fetch(`${DRAFT_BASE}${normalized}`, { method: 'GET', headers: { Accept: 'application/json', 'User-Agent': 'FPL-Cortex/1.0', Referer: 'https://draft.premierleague.com/' }, signal: controller.signal });
+    const text = await response.text();
+    let data = null;
+    try { data = text ? JSON.parse(text) : null; } catch { data = { raw: text.slice(0, 500) }; }
+    if (!response.ok) return { ok: false, status: response.status, data, error: data?.detail || data?.error || `Draft request failed (${response.status})`, headers: response.headers };
+    cacheSet(cacheKey, data);
+    return { ok: true, status: response.status, data, headers: response.headers };
+  } catch (error) {
+    return { ok: false, status: 0, error: error.name === 'AbortError' ? 'Draft request timed out' : error.message, headers: new Headers() };
+  } finally { clearTimeout(timeout); }
 }
 
 async function upstreamRequest(path, options = {}, session = null) {
@@ -692,7 +713,38 @@ function requireSession(req, res) {
   return session;
 }
 
-async function handlePublicRoute(req, res, path) {
+async function handlePublicRoute(req, res, path, url) {
+  const draftRoutes = {
+    'draft-bootstrap': '/bootstrap-static',
+    'draft-game': '/game',
+    'draft-event-status': '/pl/event-status',
+  };
+  if (draftRoutes[path]) {
+    const result = await draftRequest(draftRoutes[path]);
+    if (!result.ok) return responseError(res, result.status || 502, errorCode(result.status, result.error), result.error);
+    return res.status(200).json({ ok: true, data: result.data });
+  }
+  if (path === 'draft-live') {
+    const event = String(url?.searchParams.get('event') || '').replace(/\D/g, '');
+    if (!event) return responseError(res, 400, 'FPL_REQUEST_FAILED', 'A Draft gameweek is required.');
+    const result = await draftRequest(`/event/${event}/live`);
+    if (!result.ok) return responseError(res, result.status || 502, errorCode(result.status, result.error), result.error);
+    return res.status(200).json({ ok: true, data: result.data, event: Number(event) });
+  }
+  if (path === 'draft-league-details') {
+    const leagueId = String(url?.searchParams.get('leagueId') || '').replace(/\D/g, '');
+    if (!leagueId) return responseError(res, 400, 'FPL_REQUEST_FAILED', 'A Draft league ID is required.');
+    const result = await draftRequest(`/league/${leagueId}/details`);
+    if (!result.ok) return responseError(res, result.status || 502, errorCode(result.status, result.error), result.error);
+    return res.status(200).json({ ok: true, data: result.data, leagueId: Number(leagueId) });
+  }
+  if (path === 'draft-entry-public') {
+    const entryId = String(url?.searchParams.get('entryId') || '').replace(/\D/g, '');
+    if (!entryId) return responseError(res, 400, 'FPL_REQUEST_FAILED', 'A Draft team ID is required.');
+    const result = await draftRequest(`/entry/${entryId}/public`);
+    if (!result.ok) return responseError(res, result.status || 502, errorCode(result.status, result.error), result.error);
+    return res.status(200).json({ ok: true, data: result.data, entryId: Number(entryId) });
+  }
   const routeMap = { bootstrap: '/bootstrap-static/', players: '/bootstrap-static/', fixtures: '/fixtures/' };
   if (routeMap[path]) {
     const result = await upstreamRequest(routeMap[path]);
@@ -850,7 +902,7 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'GET') {
-    const publicResult = await handlePublicRoute(req, res, route);
+    const publicResult = await handlePublicRoute(req, res, route, url);
     if (publicResult) return publicResult;
     const path = url.searchParams.get('path');
     if (!path) return responseError(res, 400, 'FPL_REQUEST_FAILED', 'A public FPL path is required.');

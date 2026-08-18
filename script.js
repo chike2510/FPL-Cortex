@@ -142,6 +142,7 @@ const S = {
   aiChatHistory:[],
   customKit:null,
   draftState:{ active:false, round:0, pickNumber:0, myPicks:[], aiPicks:[], available:[], watchlist:[], leagueSize:8, scoring:'classic' },
+  draftIntel:{ leagueId:'', entryId:'', view:'roster', league:null, entry:null, bootstrap:null, game:null, live:null, loaded:false },
   deadlineInterval:null,
 };
 // Expose S globally so script-additions.js can access it
@@ -482,6 +483,8 @@ function attachListeners() {
   el('draftPosFilter')?.addEventListener('change', renderDraftList);
   el('draftScoring')?.addEventListener('change', () => { if(!S.draftState.active) renderDraftArea(); });
   el('draftLeagueSize')?.addEventListener('change', () => { if(!S.draftState.active) renderDraftArea(); });
+  el('loadDraftLeagueBtn')?.addEventListener('click', loadDraftIntelligence);
+  document.querySelectorAll('.draft-intel-tab').forEach(tab => tab.addEventListener('click', () => { S.draftIntel.view = tab.dataset.draftView || 'roster'; document.querySelectorAll('.draft-intel-tab').forEach(item => item.classList.toggle('is-active', item === tab)); renderDraftIntelligence(); }));
   el('newsRefreshBtn')?.addEventListener('click', loadNewsFeed);
   el('diarySaveBtn')?.addEventListener('click', saveDiaryEntry);
   document.addEventListener('click', handleGlobalClick);
@@ -549,7 +552,7 @@ function processPlayer(p) {
   if (p.element_type===3||p.element_type===4) proj+=(ict/100)*0.8;
   if (p.element_type===1||p.element_type===2) { const cs=avgFDR<=2?0.5:avgFDR<=3?0.35:0.2; proj+=cs*(p.element_type===1?6:4); }
   const ep = parseFloat(p.ep_next)||0; if (ep>0) proj=proj*0.4+ep*0.6;
-  return { ...p, teamName:team.name||'—', teamShort:team.short_name||'—', posShort:pos.short||'—', price:p.now_cost/10, formVal:form, projectedPts:Math.round(proj*10)/10, avgFDR, upcomingFixtures:uf };
+  return { ...p, teamId:Number(p.team||0), teamName:team.name||'—', teamShort:team.short_name||'—', posShort:pos.short||'—', price:p.now_cost/10, formVal:form, projectedPts:Math.round(proj*10)/10, avgFDR, upcomingFixtures:uf };
 }
 function fdrMult(fdr) { return fdr<=1.5?1.5:fdr<=2.5?1.25:fdr<=3.5?1.0:fdr<=4.5?0.75:0.55; }
 
@@ -981,13 +984,14 @@ function renderMyTeam(){
 }
 
 function initialsForPlayer(p){return`${(p.first_name||p.web_name||'').slice(0,1)}${(p.second_name||p.web_name||'').slice(0,1)}`.toUpperCase();}
+function kitVariant(p){const teamId=Number(p.teamId||p.team||0);return `kit-variant-${teamId>0?teamId%6:0}`;}
 function pitchCard(p,isBench=false){
   const isC=p.id===S.captainId,isV=p.id===S.vcaptainId,live=S.liveData?.[p.id]?.stats,pts=live?live.total_points:null,col=tc(p.teamShort),selected=S.swapPid===p.id;
   const fixture=p.upcomingFixtures?.[0];
   const fixtureText=fixture?`${fixture.home?'':'@'}${fixture.opponent}`:'—';
   const price=`£${Number(p.price||0).toFixed(1)}m`;
   const role=isBench?'bench':'starter';
-  return`<button type="button" class="pitch-card ${isBench?'is-bench':''} ${selected?'is-swap-selected':''}" data-pid="${p.id}" data-role="${role}" aria-label="${p.web_name}, ${role}"><span class="shirt-tile" style="--club:${col.p};--sleeve:${col.s}"><span class="shirt-collar"></span><span class="shirt-number">${initialsForPlayer(p).slice(0,2)}</span></span><span class="pitch-label"><strong>${p.web_name}</strong><small>${price}</small><em>${p.teamShort} ${fixtureText}</em></span>${isC?'<span class="cap-badge">C</span>':''}${isV?'<span class="vc-badge">V</span>':''}${pts!==null?`<span class="pitch-points">${pts} pts</span>`:''}</button>`;
+  return`<button type="button" class="pitch-card ${isBench?'is-bench':''} ${selected?'is-swap-selected':''}" data-pid="${p.id}" data-role="${role}" aria-label="${p.web_name}, ${role}"><span class="shirt-tile ${kitVariant(p)}" style="--club:${col.p};--sleeve:${col.s};--kit-accent:${col.s}"><span class="shirt-collar"></span><span class="shirt-number">${initialsForPlayer(p).slice(0,2)}</span></span><span class="pitch-label"><strong>${p.web_name}</strong><small>${price}</small><em>${p.teamShort} ${fixtureText}</em></span>${isC?'<span class="cap-badge">C</span>':''}${isV?'<span class="vc-badge">V</span>':''}${pts!==null?`<span class="pitch-points">${pts} pts</span>`:''}</button>`;
 }
 
 function ensurePickOrder(){
@@ -3219,3 +3223,49 @@ function buildJersey(p,isCap,isVC){
   window.upgrades = { renderGWPlanner, renderSimulator, renderCaptainHistory, renderLeagueSeasonGraphs, renderAlerts, renderCardGrid, updateStatsStrip, setNavDot, openCmd, closeCmd, syncBottomNavExternal: syncBottomNav };
 
 })();
+
+/* ══ OFFICIAL DRAFT INTELLIGENCE ═════════════════════════════════════ */
+function draftIntelData(){return S.draftIntel||{view:'roster',loaded:false};}
+async function draftFetch(route, params={}){const query=new URLSearchParams({route,...Object.fromEntries(Object.entries(params).map(([key,value])=>[key,String(value)]))});try{return await fetch(`/api/fpl?${query.toString()}`,{headers:{Accept:'application/json'},signal:AbortSignal.timeout(14000)});}catch{return {ok:false,status:0,json:async()=>({})};} }
+function draftArray(value){return Array.isArray(value)?value:[];}
+function draftEntryRows(data){const source=data?.entries||data?.league?.entries||data?.teams||data?.league_entries||[];return draftArray(source).map((row,index)=>({entry:row.entry||row.entry_id||row.id||row.team_id||'',name:row.player_name||row.manager_name||row.name||row.team_name||`Manager ${index+1}`,team:row.entry_name||row.team_name||row.name||'',points:row.total||row.total_points||row.event_total||row.event_points||0,rank:row.rank||row.position||index+1,players:row.picks||row.players||[]}));}
+function draftBootstrapPlayers(){const d=draftIntelData(),elements=d.bootstrap?.elements||d.bootstrap?.players||[];return draftArray(elements);}
+function draftWatchlistIds(){try{return JSON.parse(localStorage.getItem('fpl_draft_watchlist')||'[]').map(Number).filter(Boolean);}catch{return[];}}
+function saveDraftWatchlist(ids){try{localStorage.setItem('fpl_draft_watchlist',JSON.stringify([...new Set(ids)]));}catch{}}
+async function loadDraftIntelligence(){
+  const leagueId=String(el('draftLeagueIdInput')?.value||'').replace(/\D/g,'');
+  const entryId=String(el('draftEntryIdInput')?.value||'').replace(/\D/g,'');
+  const d=S.draftIntel={...draftIntelData(),leagueId,entryId,loaded:false};
+  setText('draftIntelStatus','Loading public data…');
+  try{
+    const [bootRes,gameRes]=await Promise.all([draftFetch('draft-bootstrap'),draftFetch('draft-game')]);
+    d.bootstrap=bootRes.ok?((await bootRes.json()).data||{}):null;
+    d.game=gameRes.ok?((await gameRes.json()).data||{}):null;
+    if(leagueId){const res=await draftFetch('draft-league-details',{leagueId});if(res.ok)d.league=(await res.json()).data||null;}
+    if(entryId){const res=await draftFetch('draft-entry-public',{entryId});if(res.ok)d.entry=(await res.json()).data||null;}
+    if(d.game?.current_event||d.game?.next_event){const event=Number(d.game.current_event||d.game.next_event);const res=await draftFetch('draft-live',{event});if(res.ok)d.live=(await res.json()).data||null;}
+    d.loaded=true;setText('draftIntelStatus',d.league||d.entry?'Public Draft data loaded':'Player data loaded');renderDraftIntelligence();
+  }catch(error){setText('draftIntelStatus','Could not load Draft data');const area=el('draftIntelArea');if(area)area.innerHTML='<div class="draft-intel-empty"><strong>Draft data is unavailable right now.</strong><span>Try again or continue on the official Draft site.</span></div>';}
+}
+function renderDraftIntelligence(){
+  const area=el('draftIntelArea');if(!area)return;const d=draftIntelData();
+  if(d.view==='watchlist')return renderDraftWatchlist(area);
+  if(d.view==='waivers')return renderDraftTransactions(area,'waivers');
+  if(d.view==='trades')return renderDraftTransactions(area,'trades');
+  const rows=draftEntryRows(d.league||d.entry);const liveData=d.live?.elements||d.live?.players||[];const liveCount=draftArray(liveData).length;
+  if(!d.loaded){area.innerHTML='<div class="draft-intel-empty"><strong>Connect a Draft league view</strong><span>Enter a league ID or team ID to load public Draft information. Actions that change an official league remain on the Premier League Draft site.</span></div>';return;}
+  const liveLabel=d.game?.current_event?`GW ${d.game.current_event} live feed · ${liveCount||'—'} player updates`:'Next Draft gameweek not live';
+  const rosterHtml=rows.length?`<div class="draft-intel-summary"><span><strong>${rows.length}</strong> managers found</span><span><strong>${liveLabel}</strong></span></div><div class="draft-roster-table"><div class="draft-roster-row draft-roster-head"><span>#</span><span>Manager</span><span>Team</span><span>GW</span><span>Total</span></div>${rows.map(row=>`<div class="draft-roster-row"><span>${escapeHTML(row.rank)}</span><span><strong>${escapeHTML(row.name)}</strong><small>${escapeHTML(row.entry)}</small></span><span>${escapeHTML(row.team)}</span><span>${escapeHTML(row.points)}</span><strong>${escapeHTML(row.points)}</strong></div>`).join('')}</div>`:'<div class="draft-intel-empty"><strong>No public roster rows returned.</strong><span>The league or team may require an official Draft session. Use the official site to manage the league.</span></div>';
+  area.innerHTML=rosterHtml;
+}
+function renderDraftWatchlist(area){
+  const ids=draftWatchlistIds(),players=draftBootstrapPlayers(),byId=new Map(players.map(p=>[Number(p.id),p])),ranked=players.slice().sort((a,b)=>(Number(a.draft_rank||9999)-Number(b.draft_rank||9999))).slice(0,80);
+  const chosen=ids.map(id=>byId.get(id)).filter(Boolean);
+  area.innerHTML=`<div class="draft-watchlist-head"><div><strong>${chosen.length} targets saved</strong><span>Saved only in this browser. The official Draft site uses its own watchlist for automatic picks.</span></div></div><div class="draft-watchlist-grid">${(chosen.length?chosen:ranked.slice(0,12)).map(player=>`<div class="draft-watch-row"><div><strong>${escapeHTML(player.web_name||`${player.first_name||''} ${player.second_name||''}`)}</strong><small>Draft rank ${escapeHTML(player.draft_rank||'—')} · ${escapeHTML(player.total_points||0)} pts · ${escapeHTML(player.form||'0.0')} form</small></div><button class="button button-quiet button-small" data-draft-watch-remove="${Number(player.id)}" type="button">${ids.includes(Number(player.id))?'Remove':'Add target'}</button></div>`).join('')}</div>`;
+  area.querySelectorAll('[data-draft-watch-remove]').forEach(button=>button.addEventListener('click',()=>{const id=Number(button.dataset.draftWatchRemove);const next=ids.includes(id)?ids.filter(item=>item!==id):[...ids,id];saveDraftWatchlist(next);renderDraftWatchlist(area);}));
+}
+function renderDraftTransactions(area,type){
+  const d=draftIntelData();const label=type==='waivers'?'Waivers and free agency':'Trades';const detail=type==='waivers'?'Plan same-position claims, monitor waiver priority, and move quickly when free agency opens.':'Compare like-for-like offers and review league approval settings before submitting a trade.';
+  const items=type==='trades'?draftArray(d.league?.trades||d.league?.trade_offers||d.entry?.trades):draftArray(d.entry?.transactions||d.league?.transactions);
+  area.innerHTML=`<div class="draft-action-guide"><span class="eyebrow">${label}</span><h3>${type==='waivers'?'Plan the next claim.':'Review the next deal.'}</h3><p>${detail}</p><div class="draft-action-note"><strong>${items.length?`${items.length} official records returned`:'No transaction records available publicly'}</strong><span>Cortex can analyse public player data and your saved targets. Submitting or changing an official ${type==='waivers'?'waiver or free-agent move':'trade'} happens on Draft.</span></div><a class="button button-primary button-small" href="https://draft.premierleague.com/" target="_blank" rel="noopener">Open official Draft</a></div>`;
+}
