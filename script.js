@@ -138,7 +138,7 @@ const S = {
   fplEntryId:null, previewEntryId:null, previewPlayer:null, readOnlyPreview:false, fplPlayer:null, myLeagues:{classic:[],h2h:[]},
   gwHistory:null,
   currentLeagueId:null, currentLeagueType:'classic',
-  actionPid:null, substitutionMode:false, swapPid:null, deferredInstall:null, notifEnabled:false, livePollInterval:null, liveSnapshot:null, liveNotifications:[], liveLastUpdated:null, theme:'dark',
+  actionPid:null, substitutionMode:false, swapPid:null, deferredInstall:null, notifEnabled:false, livePollInterval:null, liveSnapshot:null, liveNotifications:[], liveLastUpdated:null, theme:'dark', membership:{plan:'essential',billing:'monthly',status:'available',waitlisted:false},
   aiChatHistory:[],
   customKit:null,
   draftState:{ active:false, round:0, pickNumber:0, myPicks:[], aiPicks:[], available:[], watchlist:[], leagueSize:8, scoring:'classic' },
@@ -159,6 +159,7 @@ async function init() {
   const _safety = setTimeout(hideLogo, 6000);
   try {
     loadStorage();
+    renderMembershipUI();
     void restoreFplConnection();
     applyTheme(S.theme);
     registerSW();
@@ -250,11 +251,11 @@ function loadStorage() {
   try {
     const g = k => localStorage.getItem(k);
     const t=g('fpl_myteam'), c=g('fpl_captain'), v=g('fpl_vcaptain'), po=g('fpl_pickorder');
-    const ei=g('fpl_entry_id'), pi=g('fpl_preview_entry_id'), pp=g('fpl_preview_player'), pl=g('fpl_player'), lg=g('fpl_leagues'), th=g('fpl_theme'), kit=g('fpl_kit');
+    const ei=g('fpl_entry_id'), pi=g('fpl_preview_entry_id'), pp=g('fpl_preview_player'), pl=g('fpl_player'), lg=g('fpl_leagues'), th=g('fpl_theme'), kit=g('fpl_kit'), ms=g('fpl_membership');
     if(t) S.myTeam=JSON.parse(t); if(c) S.captainId=parseInt(c); if(v) S.vcaptainId=parseInt(v);
     if(po) S.pickOrder=JSON.parse(po); if(ei) S.fplEntryId=parseInt(ei); if(pi) { S.previewEntryId=parseInt(pi); S.readOnlyPreview=true; } if(pp) S.previewPlayer=JSON.parse(pp);
     if(pl) S.fplPlayer=JSON.parse(pl); if(lg) S.myLeagues=JSON.parse(lg);
-    if(th) S.theme=th; if(kit) S.customKit=JSON.parse(kit);
+    if(th) S.theme=th; if(kit) S.customKit=JSON.parse(kit); if(ms) S.membership={...S.membership,...JSON.parse(ms)};
     // A Cortex session is represented by the server's HttpOnly cookie, not localStorage.
     localStorage.removeItem('fpl_cookie');
   } catch {}
@@ -414,9 +415,12 @@ function attachListeners() {
   
   el('themeBtn')?.addEventListener('click', toggleTheme); el('notifBtn')?.addEventListener('click', toggleNotifications); el('notificationClose')?.addEventListener('click', closeNotificationPanel); el('notificationEnableBtn')?.addEventListener('click', requestBrowserNotifications); setNotificationState();
   on('installBtn', 'click', installPWA);
+  on('menuMembershipBtn', 'click', () => openPlusView('plans'));
+  on('billingMonthlyBtn', 'click', () => setBillingCycle('monthly'));
+  on('billingAnnualBtn', 'click', () => setBillingCycle('annual'));
   on('teamCentreConnectBtn', 'click', openModal);
   on('teamCentreTeamBtn', 'click', () => window.goTab?.('myteam'));
-  on('teamRatingCompareBtn', 'click', () => window.goTab?.('transfers'));
+  on('teamRatingCompareBtn', 'click', () => handlePlusFeature('transfer_compare'));
   el('loginModalClose')?.addEventListener('click', closeModal);
   
   el('companionConnectBtn')?.addEventListener('click', startCompanionConnection);
@@ -651,6 +655,25 @@ function switchTab(name) {
 // Expose switchTab globally so script-additions.js uses the same one
 window.switchTab = switchTab;
 window.goTab = window.goTab || switchTab;
+function saveMembership(){try{localStorage.setItem('fpl_membership',JSON.stringify(S.membership));}catch{}}
+function hasPlus(){return S.membership?.plan==='plus';}
+function renderMembershipUI(){
+  const m=S.membership||{plan:'essential',billing:'monthly',status:'available',waitlisted:false};
+  const plan=m.plan==='plus'?'Cortex Plus':'Essential';
+  const status=m.plan==='plus'?'Active membership':m.waitlisted?'Waitlist joined':'Free public-data access';
+  setText('menuMembershipPlan',plan);setText('menuMembershipStatus',status);
+  setText('plusMembershipStatus',m.plan==='plus'?'Cortex Plus is active for this account.':m.waitlisted?'You are on the Cortex Plus waitlist. We will notify you when billing opens.':'You are on Essential · free public-data access.');
+  const monthly=m.billing!=='annual';
+  el('billingMonthlyBtn')?.classList.toggle('active',monthly);el('billingAnnualBtn')?.classList.toggle('active',!monthly);
+  setText('plusPrice',monthly?'£4.99':'£47.90');setText('plusPeriod',monthly?'per month':'per year');
+  setText('plusBillingNote',m.waitlisted?'Waitlist joined · no charge today':'Billing coming soon · no charge today');
+  const primary=el('plusPrimaryCta');if(primary){primary.textContent=m.waitlisted?'On the Plus waitlist':'Join the Plus waitlist';primary.disabled=!!m.waitlisted;}
+  document.querySelectorAll('[data-plus-only]').forEach(node=>{node.classList.toggle('is-locked',!hasPlus());});
+}
+function setBillingCycle(cycle){S.membership={...S.membership,billing:cycle};saveMembership();renderMembershipUI();}
+function joinPlusWaitlist(){S.membership={...S.membership,waitlisted:true,status:'waitlist'};saveMembership();renderMembershipUI();document.dispatchEvent(new CustomEvent('cortexPlusWaitlistJoined'));}
+function handlePlusFeature(feature){if(hasPlus()){if(feature==='transfer_compare')window.goTab?.('transfers');return true;}openPlusView('plans');return false;}
+window.renderMembershipUI=renderMembershipUI;
 function openPlusView(anchor='hero') {
   initPlusView();
   switchTab('plus');
@@ -664,9 +687,7 @@ function initPlusView() {
     button.dataset.plusBound = '1';
     button.addEventListener('click', () => {
       document.dispatchEvent(new CustomEvent('cortexPlusIntent', { detail:{ source:button } }));
-      button.textContent = 'Coming soon';
-      button.disabled = true;
-      window.setTimeout(() => { button.textContent = 'Unlock Cortex Plus'; button.disabled = false; }, 1800);
+      if(!hasPlus()) joinPlusWaitlist();
     });
   });
   document.querySelectorAll('[data-plus-action="learn"]').forEach(button => {
@@ -1585,6 +1606,7 @@ async function connectTeamIdPreview(){
 async function searchManager(){ return connectTeamIdPreview(); }
 
 function updateAccountUI(){
+  renderMembershipUI();
   const lbl=el('menuUserLabel');
   const strip=el('statsStrip');
   if(lbl) lbl.textContent = S.fplPlayer ? (S.fplPlayer.first_name||'') : '';
