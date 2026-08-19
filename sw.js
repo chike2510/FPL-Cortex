@@ -1,5 +1,5 @@
 /* FPL CORTEX — Service Worker v3 (Speed Optimised) */
-const CACHE = 'fpl-cortex-v4';
+const CACHE = 'fpl-cortex-v5';
 const STATIC = ['/', '/index.html', '/cortex.css', '/script.js', '/manifest.json', '/icons/icon-192.png', '/icons/icon-512.png'];
 
 self.addEventListener('install', e => {

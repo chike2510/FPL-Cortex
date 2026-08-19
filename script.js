@@ -269,6 +269,7 @@ function saveTeam() {
 /* ══ PWA / SW (#13) ═════════════════════════════════════════════ */
 function registerSW() { if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {}); }
 function setupPWA() {
+  const installButton=el('installBtn'); if(installButton) installButton.style.display='grid';
   window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); S.deferredInstall = e; const b = el('installBtn'); if (b) { b.style.display = 'flex'; b.setAttribute('aria-label','Install Cortex'); b.title='Install Cortex'; } });
   window.addEventListener('appinstalled', () => { const b = el('installBtn'); if (b) b.style.display = 'none'; });
 }
@@ -673,7 +674,13 @@ function initPlusView() {
 }
 
 /* ══ DASHBOARD ══════════════════════════════════════════════════ */
+function hasTeamConnection(){return Boolean(S.fplPlayer&&(S.fplEntryId||S.previewEntryId||S.readOnlyPreview));}
+function handleDashboardConnect(){if(hasTeamConnection())window.goTab?.('myteam');else openModal();}
+window.handleDashboardConnect=handleDashboardConnect;
 function renderDashboard() {
+  const connected=hasTeamConnection();
+  const connectBtn=el('dashboardConnectBtn'); if(connectBtn){connectBtn.textContent=connected?'Open My Team':'Connect FPL'; connectBtn.classList.toggle('button-primary',!connected); connectBtn.classList.toggle('button-quiet',connected);}
+  setText('heroInsight',connected?'Your Team ID is connected. Review your squad and plan the next move.':'Connect your FPL team to see your team and plan your next move.');
   const { starters } = getSquadGroups(), mp = myPlayers(), cap = starters.find(p=>p.id===S.captainId);
   let proj = starters.reduce((s,p)=>s+p.projectedPts,0); if(cap) proj+=cap.projectedPts;
   setText('dashProjected', Math.round(proj*10)/10);
@@ -1524,7 +1531,7 @@ async function connectTeamIdPreview(){
     if(picksRes.ok){const picks=await picksRes.json();if(Array.isArray(picks.picks)&&picks.picks.length)applyFplTeam({picks:picks.picks});}
     updateAccountUI();closeModal();renderAll();window.goTab?.('myteam');
   }catch(errorValue){show(errorValue.message||'The FPL team could not be loaded.');}
-  finally{if(btn){btn.disabled=false;btn.textContent='LOAD TEAM';}}
+  finally{if(btn){btn.disabled=false;btn.textContent='CONNECT WITH TEAM ID';}}
 }
 
 async function searchManager(){ return connectTeamIdPreview(); }
@@ -1545,6 +1552,7 @@ function updateAccountUI(){
     // Show account bar
     const ab=el('fplAccountBar');
     if(ab){ab.style.display='flex';
+      const label=ab.querySelector('small');if(label)label.textContent=S.readOnlyPreview?'Connected team':'Official FPL account';
       const mn=el('fplManagerName');if(mn)mn.textContent=S.fplPlayer.first_name+' '+S.fplPlayer.last_name;
       const mt=el('fplTeamMeta');if(mt)mt.textContent = S.readOnlyPreview ? 'Team ID access · Entry '+S.previewEntryId : 'FPL Entry: '+S.fplEntryId;
     }
