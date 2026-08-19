@@ -416,6 +416,7 @@ function attachListeners() {
   on('installBtn', 'click', installPWA);
   on('teamCentreConnectBtn', 'click', openModal);
   on('teamCentreTeamBtn', 'click', () => window.goTab?.('myteam'));
+  on('teamRatingCompareBtn', 'click', () => window.goTab?.('transfers'));
   el('loginModalClose')?.addEventListener('click', closeModal);
   
   el('companionConnectBtn')?.addEventListener('click', startCompanionConnection);
@@ -999,6 +1000,48 @@ function togglePlayer(pid){const idx=S.myTeam.indexOf(pid);if(idx===-1){if(S.myT
 function removeFromTeam(pid){const idx=S.myTeam.indexOf(pid);if(idx===-1)return;S.myTeam.splice(idx,1);if(S.captainId===pid){S.captainId=null;localStorage.removeItem('fpl_captain');}if(S.vcaptainId===pid){S.vcaptainId=null;localStorage.removeItem('fpl_vcaptain');}delete S.pickOrder[pid];saveTeam();renderMyTeam();renderPlayerTable();renderDashboard();}
 function clearTeam(){if(!confirm('Clear entire squad?'))return;S.myTeam=[];S.captainId=null;S.vcaptainId=null;S.pickOrder={};['fpl_myteam','fpl_captain','fpl_vcaptain','fpl_pickorder'].forEach(k=>localStorage.removeItem(k));renderMyTeam();renderDashboard();renderPlayerTable();}
 
+function clampRating(value){return Math.max(0,Math.min(100,Math.round(Number(value)||0)));}
+function teamRatingModel(){
+  const mp=myPlayers(), {starters,bench}=getSquadGroups();
+  if(!mp.length)return {total:null,label:'Awaiting squad',summary:'Build or connect a squad to receive a transparent rating.',breakdown:[],recommendations:[],upgrade:null};
+  const avg=(arr,fn)=>arr.length?arr.reduce((s,x)=>s+Number(fn(x)||0),0)/arr.length:0;
+  const form=clampRating(avg(starters.length?starters:mp,p=>Number(p.formVal||0))*16);
+  const xpts=clampRating(avg(starters.length?starters:mp,p=>Number(p.projectedPts||0))*11);
+  const fixture=clampRating((5-avg(starters.length?starters:mp,p=>Number(p.avgFDR||3)))/4*100);
+  const captain=starters.length?clampRating((capScore(starters.find(p=>p.id===S.captainId)||[...starters].sort((a,b)=>capScore(b)-capScore(a))[0])/10)*100):0;
+  const benchQuality=clampRating(avg(bench,p=>Number(p.projectedPts||0))*9 + Math.min(15,bench.length*3));
+  const balance=clampRating(Math.min(100,Object.keys(mp.reduce((a,p)=>(a[p.posShort]=(a[p.posShort]||0)+1,a),{})).length/4*100));
+  const total=clampRating(form*.25+xpts*.25+fixture*.2+captain*.15+benchQuality*.1+balance*.05);
+  const breakdown=[['Squad quality',form*.5+xpts*.5,'Form and projected points across your likely XI.'],['Fixture run',fixture,'Upcoming fixture difficulty for your likely XI.'],['Captaincy',captain,'Captain choice compared with your strongest captaincy option.'],['Bench depth',benchQuality,'Cover quality and projected output outside the XI.'],['Squad balance',balance,'Positional coverage across the current squad.']].map(([name,score,detail])=>({name,score:clampRating(score),detail}));
+  const recommendations=[];
+  if(mp.length<15)recommendations.push({tone:'focus',title:`Complete the squad (${mp.length}/15)`,copy:'A full squad gives the model enough cover to judge bench depth and rotation risk.'});
+  if(starters.length<11)recommendations.push({tone:'focus',title:`Set your starting XI (${starters.length}/11)`,copy:'Choose the players you expect to start so fixture and captaincy signals are meaningful.'});
+  if(fixture<55)recommendations.push({tone:'fixture',title:'Review the fixture run',copy:'Several likely starters face difficult upcoming fixtures. Check the Fixture Desk before committing.'});
+  if(captain<70)recommendations.push({tone:'captain',title:'Revisit the captaincy',copy:'Your current armband is not the strongest model option from the selected XI.'});
+  if(benchQuality<55)recommendations.push({tone:'bench',title:'Strengthen the bench',copy:'Your substitutes offer limited projected cover if a starter misses the gameweek.'});
+  const flagged=(mp.filter(p=>Number(p.chance_of_playing_next_round||100)<75||p.news).slice(0,2));
+  flagged.forEach(p=>recommendations.push({tone:'alert',title:`Check ${p.web_name}`,copy:p.news||`${p.chance_of_playing_next_round}% chance of playing next round. Review before the deadline.`}));
+  if(!recommendations.length)recommendations.push({tone:'good',title:'No urgent weakness found',copy:'Your current squad has a balanced profile. Keep monitoring fixtures, news, and captaincy before the deadline.'});
+  const weakest=[...starters].sort((a,b)=>(Number(a.projectedPts||0)-Number(a.avgFDR||3)*.8)-(Number(b.projectedPts||0)-Number(b.avgFDR||3)*.8))[0];
+  const candidates=weakest?S.players.filter(p=>p.id!==weakest.id&&p.posShort===weakest.posShort&&!mp.some(x=>x.id===p.id)&&Number(p.projectedPts||0)>Number(weakest.projectedPts||0)+.5).sort((a,b)=>((b.projectedPts||0)-(b.avgFDR||3)*.8)-((a.projectedPts||0)-(a.avgFDR||3)*.8)).slice(0,1):[];
+  const candidate=candidates[0];
+  const upgrade=candidate?{out:weakest.web_name,inn:candidate.web_name,gain:Math.max(.1,Number(candidate.projectedPts||0)-Number(weakest.projectedPts||0))}:null;
+  const label=total>=85?'Elite signal':total>=70?'Strong foundation':total>=55?'Promising team':total>=40?'Needs attention':'Early build';
+  const summary=total>=70?'Your squad has a clear base. Focus on one or two high-impact decisions before the deadline.':'The model sees a few areas where a focused change could improve your next gameweek.';
+  return {total,label,summary,breakdown,recommendations,upgrade};
+}
+function renderTeamRating(){
+  const model=teamRatingModel(),score=el('teamRatingScore'),label=el('teamRatingLabel'),summary=el('teamRatingSummary'),breakdown=el('teamRatingBreakdown'),recs=el('teamRatingRecommendations'),recMeta=el('teamRatingRecMeta'),upTitle=el('teamRatingUpgradeTitle'),upCopy=el('teamRatingUpgradeCopy');
+  if(!score)return;
+  score.textContent=model.total===null?'—':model.total;
+  if(label)label.textContent=model.label;
+  if(summary)summary.textContent=model.summary;
+  if(recMeta)recMeta.textContent=model.total===null?'Free squad review':'Transparent public-data model';
+  if(breakdown)breakdown.innerHTML=model.breakdown.length?model.breakdown.map(item=>`<div class="rating-breakdown-row"><div><strong>${item.name}</strong><small>${item.detail}</small></div><span class="rating-bar"><i style="width:${item.score}%"></i></span><b>${item.score}</b></div>`).join(''):'<div class="rating-empty">Your category breakdown will appear here.</div>';
+  if(recs)recs.innerHTML=model.recommendations.map(item=>`<div class="rating-recommendation tone-${item.tone}"><span class="rating-rec-mark"></span><div><strong>${item.title}</strong><p>${item.copy}</p></div></div>`).join('');
+  if(model.upgrade){if(upTitle)upTitle.textContent=`Compare ${model.upgrade.out} with ${model.upgrade.inn}`;if(upCopy)upCopy.textContent=`A first-pass public-data comparison estimates +${model.upgrade.gain.toFixed(1)} xPts for the next gameweek. Open Transfer Desk to review the move.`;}else{if(upTitle)upTitle.textContent='Want to test a move?';if(upCopy)upCopy.textContent='Cortex Plus will compare candidate transfers against your current rating and show the projected uplift.';}
+  const centre=el('teamCentreScore');if(centre&&model.total!==null)centre.textContent=model.total;
+}
 function renderMyTeam(){
   const mp=myPlayers();const{starters,bench,formation,byPos}=getSquadGroups();
   const spent=mp.reduce((s,p)=>s+p.price,0);const cap=starters.find(p=>p.id===S.captainId);
@@ -1009,6 +1052,7 @@ function renderMyTeam(){
   const draftBudget=el('draftBudgetLabel');if(draftBudget)draftBudget.textContent=`£${spent.toFixed(1)}m / £${squadRules().budget.toFixed(1)}m`;
   const impBtn=el('importFplTeamBtn');if(impBtn)impBtn.style.display=S.fplEntryId?'inline-flex':'none';
   const hint=S.substitutionMode?(S.swapPid?'Choose the player to bring on.':'Choose one starter, then one bench player.'):'Tap Swap players to reorder the XI and bench.';setText('lineupHint',hint);updateSubstitutionUI();
+  renderTeamRating();
   renderDraftBuilder();
   [{id:'pitchFWD',players:byPos.FWD||[]},{id:'pitchMID',players:byPos.MID||[]},{id:'pitchDEF',players:byPos.DEF||[]},{id:'pitchGKP',players:byPos.GKP||[]}].forEach(({id,players})=>{const row=el(id);if(!row)return;row.innerHTML=players.length?players.map(p=>pitchCard(p,false)).join(''):'<div class="pitch-empty"><span>—</span></div>';});
   const benchEl=el('pitchBench');if(benchEl)benchEl.innerHTML=bench.length?bench.map(p=>pitchCard(p,true)).join(''):'<div class="pitch-empty bench-empty"><span>No bench players</span></div>';
