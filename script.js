@@ -414,6 +414,8 @@ function attachListeners() {
   
   el('themeBtn')?.addEventListener('click', toggleTheme); el('notifBtn')?.addEventListener('click', toggleNotifications); el('notificationClose')?.addEventListener('click', closeNotificationPanel); el('notificationEnableBtn')?.addEventListener('click', requestBrowserNotifications); setNotificationState();
   on('installBtn', 'click', installPWA);
+  on('teamCentreConnectBtn', 'click', openModal);
+  on('teamCentreTeamBtn', 'click', () => window.goTab?.('myteam'));
   el('loginModalClose')?.addEventListener('click', closeModal);
   
   el('companionConnectBtn')?.addEventListener('click', startCompanionConnection);
@@ -681,6 +683,8 @@ function renderDashboard() {
   const connected=hasTeamConnection();
   const connectBtn=el('dashboardConnectBtn'); if(connectBtn){connectBtn.textContent=connected?'Open My Team':'Connect FPL'; connectBtn.classList.toggle('button-primary',!connected); connectBtn.classList.toggle('button-quiet',connected);}
   setText('heroInsight',connected?'Your Team ID is connected. Review your squad and plan the next move.':'Connect your FPL team to see your team and plan your next move.');
+  const teamCentre=el('teamCentreCard'),teamScore=el('teamCentreScore'),teamMeta=el('teamCentreScoreMeta'),teamTitle=el('teamCentreTitle'),teamCopy=el('teamCentreCopy'),teamConnect=el('teamCentreConnectBtn');
+  if(teamCentre){teamCentre.classList.toggle('is-connected',connected);if(teamTitle)teamTitle.textContent=connected?'Your squad is ready for a closer read.':'Build your first team signal.';if(teamCopy)teamCopy.textContent=connected?'Use the live squad view to review your XI, captain, bench, and next move.':'Connect with Team ID or build a squad to see your rating, captaincy signal, and next decision.';if(teamConnect)teamConnect.textContent=connected?'Refresh team':'Connect team';if(teamScore)teamScore.textContent='—';if(teamMeta)teamMeta.textContent=connected?'Team connected · build your squad signal':'Waiting for squad data';}
   const { starters } = getSquadGroups(), mp = myPlayers(), cap = starters.find(p=>p.id===S.captainId);
   let proj = starters.reduce((s,p)=>s+p.projectedPts,0); if(cap) proj+=cap.projectedPts;
   setText('dashProjected', Math.round(proj*10)/10);
@@ -725,7 +729,7 @@ function renderPublicPulse() {
 /* ══ CORTEX SCORE (#31) ═════════════════════════════════════════ */
 function updateCortexScore() {
   const mp = myPlayers();
-  if (!mp.length) { setText('cortexScoreVal','—'); setText('cortexScoreSub','Build your squad to get rated'); const c=el('cortexScoreCircle');if(c)c.style.strokeDashoffset='213.6'; return; }
+  if (!mp.length) { setText('cortexScoreVal','—'); setText('teamCentreScore','—'); setText('teamCentreScoreMeta','Waiting for squad data'); setText('cortexScoreSub','Build your squad to get rated'); const c=el('cortexScoreCircle');if(c)c.style.strokeDashoffset='213.6'; return; }
   const { starters } = getSquadGroups();
   const avgForm = mp.reduce((s,p)=>s+p.formVal,0)/mp.length;
   const formScore = Math.min(25, avgForm/8*25);
@@ -738,7 +742,7 @@ function updateCortexScore() {
   const topCap = starters.length?[...starters].sort((a,b)=>capScore(b)-capScore(a))[0]:null;
   const capS = topCap?Math.min(15,capScore(topCap)/10):0;
   const total = Math.round(Math.min(100,formScore+fixtureScore+valueScore+spreadScore+capS));
-  setText('cortexScoreVal', total);
+  setText('cortexScoreVal', total); setText('teamCentreScore', total); setText('teamCentreScoreMeta', total>=70?'Strong squad signal':'Room to improve');
   const sub = total>=85?'Elite Squad ':total>=70?'Strong Team ':total>=55?'Decent Squad ':total>=40?'Needs Work ':'Struggling ';
   setText('cortexScoreSub', sub);
   const circle = el('cortexScoreCircle');
