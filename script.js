@@ -569,7 +569,7 @@ function processPlayer(p) {
   const ict = parseFloat(p.ict_index)||0;
   if (p.element_type===3||p.element_type===4) proj+=(ict/100)*0.8;
   if (p.element_type===1||p.element_type===2) { const cs=avgFDR<=2?0.5:avgFDR<=3?0.35:0.2; proj+=cs*(p.element_type===1?6:4); }
-  const ep = parseFloat(p.ep_next); const officialEp = Number.isFinite(ep) && ep>0 ? ep : null; const appearance = minFac>=0.8 ? 2 : minFac>=0.55 ? 1 : 0; const roleLift = (p.element_type===3||p.element_type===4) ? (Math.max(0,form)/5)*1.15 + (ict/100)*1.05 : (p.element_type===1||p.element_type===2) ? (Math.max(0,form)/5)*.75 + (avgFDR<=2.5 ? 1.0 : avgFDR<=3.5 ? .65 : .3) : .35; const robustProj = Math.max(0, appearance + roleLift) * (avgFDR<=2.5 ? 1.08 : avgFDR>=4 ? .9 : 1); const finalProj = officialEp !== null ? Math.max(officialEp, robustProj) : Math.max(proj, robustProj);
+  const ep = parseFloat(p.ep_next); const officialEp = Number.isFinite(ep) && ep>0 ? ep : null; const ppg = Math.max(0,Math.min(8,parseFloat(p.points_per_game)||0)); const historyAnchor = ppg || 2.5; const fixtureLift = avgFDR<=1.5?.4:avgFDR<=2.5?.22:avgFDR<=3.5?0:avgFDR<=4.5?-.18:-.38; const roleScale = p.element_type===4?.95:p.element_type===3?.78:p.element_type===2?.48:.26; const roleLift = Math.min(roleScale,(ict/350)*roleScale); const regularityLift = Math.min(.28,(Number(p.minutes)||0)/3000*.28); const formLift = form>0 ? Math.max(-.45,Math.min(.55,(form-historyAnchor)*.28)) : 0; const scaledProj = historyAnchor*.45 + (officialEp??proj)*.55 + fixtureLift + roleLift + regularityLift + formLift; const availability = p.chance_of_playing_next_round!=null ? Number(p.chance_of_playing_next_round)/100 : 1; const riskFactor = availability<.75 ? .78 : availability<.9 ? .9 : 1; const finalProj = officialEp !== null ? Math.max(officialEp,scaledProj*riskFactor) : Math.max(proj,scaledProj*riskFactor);
   return { ...p, teamId:Number(p.team||0), teamName:team.name||'—', teamShort:team.short_name||'—', posShort:pos.short||'—', price:p.now_cost/10, formVal:form, projectedPts:Math.round(finalProj*10)/10, projectedSource:officialEp?'official_ep_next':'cortex_fallback', avgFDR, upcomingFixtures:uf };
 }
 function fdrMult(fdr) { return fdr<=1.5?1.5:fdr<=2.5?1.25:fdr<=3.5?1.0:fdr<=4.5?0.75:0.55; }
@@ -926,7 +926,7 @@ function renderPlayerTable(){
     const avail=(p.chance_of_playing_next_round!==null&&p.chance_of_playing_next_round<100)?`<div class="news-banner">${p.news||p.chance_of_playing_next_round+'%'}</div>`:'';
     const priceChg=p.cost_change_event>0?'<span style="color:var(--green);font-size:.6rem">▲</span>':p.cost_change_event<0?'<span style="color:var(--red);font-size:.6rem">▼</span>':'';
     const starred = isShortlisted(p.id);
-    return`<tr><td><div class="player-name">${p.web_name} ${flag}${priceChg}</div><div class="player-sub">${p.teamShort}</div>${avail}</td><td><span class="pos-chip pos-${p.posShort}">${p.posShort}</span></td><td><span class="price-val">£${p.price.toFixed(1)}</span></td><td><span class="form-val ${formCls}">${p.form}</span></td><td><span class="pts-val">${p.total_points}</span></td><td><span class="ep-val">${p.ep_next||'—'}</span></td><td><span class="sel-pct">${parseFloat(p.selected_by_percent).toFixed(1)}%</span></td><td style="display:flex;gap:3px;align-items:center"><button class="shortlist-btn" data-pid="${p.id}" style="background:none;border:none;font-size:.9rem;cursor:pointer;padding:2px;opacity:${starred?1:.3}" title="${starred?'Remove from':'Add to'} shortlist">${starred?'':''}</button><button class="add-btn ${inTeam?'in-team':''}" data-pid="${p.id}" ${full?'disabled':''}>${inTeam?'':'＋'}</button></td></tr>`;
+    return`<tr><td><div class="player-name">${p.web_name} ${flag}${priceChg}</div><div class="player-sub">${p.teamShort}</div>${avail}</td><td><span class="pos-chip pos-${p.posShort}">${p.posShort}</span></td><td><span class="price-val">£${p.price.toFixed(1)}</span></td><td><span class="form-val ${formCls}">${p.form}</span></td><td><span class="pts-val">${p.total_points}</span></td><td><span class="ep-val">${p.projectedPts!=null?p.projectedPts.toFixed(1):'—'}</span></td><td><span class="sel-pct">${parseFloat(p.selected_by_percent).toFixed(1)}%</span></td><td style="display:flex;gap:3px;align-items:center"><button class="shortlist-btn" data-pid="${p.id}" style="background:none;border:none;font-size:.9rem;cursor:pointer;padding:2px;opacity:${starred?1:.3}" title="${starred?'Remove from':'Add to'} shortlist">${starred?'':''}</button><button class="add-btn ${inTeam?'in-team':''}" data-pid="${p.id}" ${full?'disabled':''}>${inTeam?'':'＋'}</button></td></tr>`;
   }).join('');
   const pag=el('playerPagination');if(!pag)return;if(pages<=1){pag.innerHTML='';return;}
   let ph='';if(S.page>1)ph+=`<button class="page-btn" data-p="${S.page-1}">‹</button>`;
@@ -1170,7 +1170,7 @@ function renderDifferentials(){
   if(posF)diffs=diffs.filter(p=>p.posShort===posF);diffs.sort((a,b)=>(parseFloat(b[sortKey])||0)-(parseFloat(a[sortKey])||0));
   const tbody=el('diffTableBody');if(!tbody)return;
   const top=diffs.slice(0,20);if(!top.length){tbody.innerHTML=`<tr><td colspan="8"><div class="table-empty-state"><strong>No differentials found</strong><span>Try another position or sort.</span></div></td></tr>`;return;}
-  tbody.innerHTML=top.map(p=>{const inTeam=S.myTeam.includes(p.id),full=!inTeam&&S.myTeam.length>=15;const fix=p.upcomingFixtures[0];const fixStr=fix?`${fix.home?'':'@'}${fix.opponent} <span class="fdr fdr-${fix.difficulty}">${fix.difficulty}</span>`:'—';return`<tr><td><div class="player-name">${p.web_name}</div><div class="player-sub">${p.teamShort}</div></td><td><span class="pos-chip pos-${p.posShort}">${p.posShort}</span></td><td><span class="price-val">£${p.price.toFixed(1)}</span></td><td><span class="form-val form-hi">${p.form}</span></td><td><span class="ep-val">${p.ep_next||'—'}</span></td><td><span class="sel-pct">${parseFloat(p.selected_by_percent).toFixed(1)}%</span></td><td style="font-family:var(--font-data);font-size:.7rem">${fixStr}</td><td><button class="add-btn ${inTeam?'in-team':''}" data-pid="${p.id}" ${full?'disabled':''}>${inTeam?'':'＋'}</button></td></tr>`;}).join('');
+  tbody.innerHTML=top.map(p=>{const inTeam=S.myTeam.includes(p.id),full=!inTeam&&S.myTeam.length>=15;const fix=p.upcomingFixtures[0];const fixStr=fix?`${fix.home?'':'@'}${fix.opponent} <span class="fdr fdr-${fix.difficulty}">${fix.difficulty}</span>`:'—';return`<tr><td><div class="player-name">${p.web_name}</div><div class="player-sub">${p.teamShort}</div></td><td><span class="pos-chip pos-${p.posShort}">${p.posShort}</span></td><td><span class="price-val">£${p.price.toFixed(1)}</span></td><td><span class="form-val form-hi">${p.form}</span></td><td><span class="ep-val">${p.projectedPts!=null?p.projectedPts.toFixed(1):'—'}</span></td><td><span class="sel-pct">${parseFloat(p.selected_by_percent).toFixed(1)}%</span></td><td style="font-family:var(--font-data);font-size:.7rem">${fixStr}</td><td><button class="add-btn ${inTeam?'in-team':''}" data-pid="${p.id}" ${full?'disabled':''}>${inTeam?'':'＋'}</button></td></tr>`;}).join('');
 }
 
 /* ══ COMPARISON (#5) ════════════════════════════════════════════ */
@@ -1178,7 +1178,7 @@ function renderComparison(){
   const find=q=>q?S.players.filter(p=>`${p.first_name} ${p.second_name} ${p.web_name}`.toLowerCase().includes(q.toLowerCase())).sort((a,b)=>b.total_points-a.total_points)[0]:null;
   const players=[find(el('compareSearch1')?.value||''),find(el('compareSearch2')?.value||''),find(el('compareSearch3')?.value||'')].filter(Boolean);
   const area=el('compareResults');if(!area)return;if(players.length<2){area.innerHTML=emptyState('','ADD 2 PLAYERS','Type player names above.');return;}
-  const stats=[{label:'Position',key:p=>p.posShort},{label:'Team',key:p=>p.teamShort},{label:'Price',key:p=>`£${p.price.toFixed(1)}m`,num:p=>p.price},{label:'Form',key:p=>p.form,num:p=>parseFloat(p.form)},{label:'Total Pts',key:p=>p.total_points,num:p=>p.total_points},{label:'xPts',key:p=>p.ep_next||'—',num:p=>parseFloat(p.ep_next)||0},{label:'Ownership',key:p=>p.selected_by_percent+'%',num:p=>parseFloat(p.selected_by_percent)},{label:'ICT',key:p=>parseFloat(p.ict_index).toFixed(1),num:p=>parseFloat(p.ict_index)},{label:'Goals',key:p=>p.goals_scored,num:p=>p.goals_scored},{label:'Assists',key:p=>p.assists,num:p=>p.assists},{label:'Next FDR',key:p=>p.upcomingFixtures[0]?`GW${p.upcomingFixtures[0].gw} FDR${p.upcomingFixtures[0].difficulty}`:'—',num:p=>p.upcomingFixtures[0]?6-p.upcomingFixtures[0].difficulty:0}];
+  const stats=[{label:'Position',key:p=>p.posShort},{label:'Team',key:p=>p.teamShort},{label:'Price',key:p=>`£${p.price.toFixed(1)}m`,num:p=>p.price},{label:'Form',key:p=>p.form,num:p=>parseFloat(p.form)},{label:'Total Pts',key:p=>p.total_points,num:p=>p.total_points},{label:'xPts',key:p=>p.projectedPts!=null?p.projectedPts.toFixed(1):'—',num:p=>Number(p.projectedPts)||0},{label:'Ownership',key:p=>p.selected_by_percent+'%',num:p=>parseFloat(p.selected_by_percent)},{label:'ICT',key:p=>parseFloat(p.ict_index).toFixed(1),num:p=>parseFloat(p.ict_index)},{label:'Goals',key:p=>p.goals_scored,num:p=>p.goals_scored},{label:'Assists',key:p=>p.assists,num:p=>p.assists},{label:'Next FDR',key:p=>p.upcomingFixtures[0]?`GW${p.upcomingFixtures[0].gw} FDR${p.upcomingFixtures[0].difficulty}`:'—',num:p=>p.upcomingFixtures[0]?6-p.upcomingFixtures[0].difficulty:0}];
   const headers=players.map((p,i)=>`<th class="${i===0?'compare-header-cell':''}">${p.web_name}<br><span style="font-size:.62rem;color:var(--text-sub)">${p.teamShort}</span></th>`).join('');
   const rows=stats.map(s=>{const vals=players.map(p=>s.key(p));const nums=s.num?players.map(p=>s.num(p)):null;const maxNum=nums?Math.max(...nums):null;return`<tr><td>${s.label}</td>${vals.map((v,i)=>`<td class="${nums&&nums[i]===maxNum&&maxNum>0?'compare-best':''}">${v}</td>`).join('')}</tr>`;}).join('');
   area.innerHTML=`<div class="player-table-wrap"><table class="compare-table"><thead><tr><th>Stat</th>${headers}</tr></thead><tbody>${rows}</tbody></table></div>`;
@@ -2395,7 +2395,7 @@ function updateAIHeroCard(entry, captainPick) {
     const ptsEl  = document.getElementById('heroCaptainPts');
     const confEl = document.getElementById('heroCaptainConf');
     if (nameEl) nameEl.textContent = captainPick.name || '—';
-    if (ptsEl)  ptsEl.textContent  = (captainPick.ep_next || '—') + ' xPts';
+    if (ptsEl)  ptsEl.textContent  = (captainPick.projectedPts != null ? captainPick.projectedPts : '—') + ' xPts';
     if (confEl) confEl.textContent  = (captainPick.conf || '93') + '%';
   }
 }
@@ -2813,7 +2813,7 @@ function buildJersey(p,isCap,isVC){
         </div>`).join('')
       : `<div style="color:var(--text-sub);font-size:.8rem;padding:.5rem">No transfers recommended — squad looks solid.</div>`;
 
-    const totXPts = topByForm.slice(0,11).reduce((s,p) => s + (parseFloat(p.ep_next)||0), 0).toFixed(1);
+    const totXPts = topByForm.slice(0,11).reduce((s,p) => s + (Number(p.projectedPts)||0), 0).toFixed(1);
     const chipName = gws[chipGW?.i]?.name || '—';
 
     area.innerHTML = `
@@ -2861,7 +2861,7 @@ function buildJersey(p,isCap,isVC){
     const form = parseFloat(p.form) || 0;
     const ownership = parseFloat(p.selected_by_percent) || 0;
     const priceTrend = p.cost_change_event || 0;
-    const xPts = parseFloat(p.ep_next) || 0;
+    const xPts = Number(p.projectedPts) || 0;
 
     // Metrics out of 10
     const formScore     = Math.min(10, form * 1.4);
