@@ -1,5 +1,5 @@
 /* FPL CORTEX — Service Worker v3 (Speed Optimised) */
-const CACHE = 'fpl-cortex-v5';
+const CACHE = 'fpl-cortex-v6';
 const STATIC = ['/', '/index.html', '/cortex.css', '/script.js', '/manifest.json', '/icons/icon-192.png', '/icons/icon-512.png'];
 
 self.addEventListener('install', e => {
@@ -26,6 +26,6 @@ self.addEventListener('fetch', e => {
 });
 self.addEventListener('push', e => {
   const data = e.data?.json() || { title:'FPL Cortex', body:'New update!' };
-  e.waitUntil(self.registration.showNotification(data.title, { body:data.body, icon:'/manifest.json', tag:'fpl-cortex', data:data.url||'/' }));
+  e.waitUntil(self.registration.showNotification(data.title, { body:data.body, icon:'/icons/icon-192.png', tag:'fpl-cortex', data:data.url||'/' }));
 });
 self.addEventListener('notificationclick', e => { e.notification.close(); e.waitUntil(clients.openWindow(e.notification.data)); });
