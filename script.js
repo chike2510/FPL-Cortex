@@ -148,7 +148,7 @@ const S = {
 // Expose S globally so script-additions.js can access it
 window.S = S;
 
-/* ══ INIT (Speed Optimised) ═════════════════════════════════════
+/* ══ INIT (Speed Set up) ═════════════════════════════════════
    Strategy:
    1. Show cached data INSTANTLY (no spinner delay)
    2. Fetch fresh data IN BACKGROUND
@@ -501,8 +501,8 @@ function attachListeners() {
   el('draftPosFilter')?.addEventListener('change', renderDraftList);
   el('draftScoring')?.addEventListener('change', () => { if(!S.draftState.active) renderDraftArea(); });
   el('draftLeagueSize')?.addEventListener('change', () => { if(!S.draftState.active) renderDraftArea(); });
-  el('loadDraftLeagueBtn')?.addEventListener('click', loadDraftIntelligence);
-  document.querySelectorAll('.draft-intel-tab').forEach(tab => tab.addEventListener('click', () => { S.draftIntel.view = tab.dataset.draftView || 'roster'; document.querySelectorAll('.draft-intel-tab').forEach(item => item.classList.toggle('is-active', item === tab)); renderDraftIntelligence(); }));
+  el('loadDraftLeagueBtn')?.addEventListener('click', loadDraftTools);
+  document.querySelectorAll('.draft-intel-tab').forEach(tab => tab.addEventListener('click', () => { S.draftIntel.view = tab.dataset.draftView || 'roster'; document.querySelectorAll('.draft-intel-tab').forEach(item => item.classList.toggle('is-active', item === tab)); renderDraftTools(); }));
   el('newsRefreshBtn')?.addEventListener('click', loadNewsFeed);
   el('diarySaveBtn')?.addEventListener('click', saveDiaryEntry);
   document.addEventListener('click', handleGlobalClick);
@@ -569,7 +569,7 @@ function processPlayer(p) {
   const ict = parseFloat(p.ict_index)||0;
   if (p.element_type===3||p.element_type===4) proj+=(ict/100)*0.8;
   if (p.element_type===1||p.element_type===2) { const cs=avgFDR<=2?0.5:avgFDR<=3?0.35:0.2; proj+=cs*(p.element_type===1?6:4); }
-  const ep = parseFloat(p.ep_next); const officialEp = Number.isFinite(ep) && ep>0 ? ep : null; const finalProj = officialEp ?? proj;
+  const ep = parseFloat(p.ep_next); const officialEp = Number.isFinite(ep) && ep>0 ? ep : null; const appearance = minFac>=0.8 ? 2 : minFac>=0.55 ? 1 : 0; const roleLift = (p.element_type===3||p.element_type===4) ? (Math.max(0,form)/5)*1.15 + (ict/100)*1.05 : (p.element_type===1||p.element_type===2) ? (Math.max(0,form)/5)*.75 + (avgFDR<=2.5 ? 1.0 : avgFDR<=3.5 ? .65 : .3) : .35; const robustProj = Math.max(0, appearance + roleLift) * (avgFDR<=2.5 ? 1.08 : avgFDR>=4 ? .9 : 1); const finalProj = officialEp !== null ? Math.max(officialEp, robustProj) : Math.max(proj, robustProj);
   return { ...p, teamId:Number(p.team||0), teamName:team.name||'—', teamShort:team.short_name||'—', posShort:pos.short||'—', price:p.now_cost/10, formVal:form, projectedPts:Math.round(finalProj*10)/10, projectedSource:officialEp?'official_ep_next':'cortex_fallback', avgFDR, upcomingFixtures:uf };
 }
 function fdrMult(fdr) { return fdr<=1.5?1.5:fdr<=2.5?1.25:fdr<=3.5?1.0:fdr<=4.5?0.75:0.55; }
@@ -727,7 +727,7 @@ function renderDashboard() {
     else bar.style.display='none';
   }
   renderCaptainSuggestions(starters.length?starters:mp);
-  renderRiskAnalysis(mp);
+  renderRiskLook(mp);
   updateCortexScore();
   if (S.gwHistory) updateSeasonStats();
   renderPublicPulse();
@@ -900,7 +900,7 @@ function autoPickSquad(){
 
 /* ══ RISK ═══════════════════════════════════════════════════════ */
 function getRisk(p){const risks=[],avgMins=p.minutes/Math.max(1,S.currentGW||1);if(p.chance_of_playing_next_round!==null&&p.chance_of_playing_next_round<75)risks.push({level:'high',reason:`${p.chance_of_playing_next_round}% chance`});else if(p.chance_of_playing_next_round!==null&&p.chance_of_playing_next_round<100)risks.push({level:'medium',reason:`Slight doubt`});if(p.formVal===0&&p.total_points>0)risks.push({level:'high',reason:'Zero form'});else if(p.formVal<2&&p.total_points>0)risks.push({level:'medium',reason:`Poor form ${p.form}`});if(p.avgFDR>=4.5)risks.push({level:'high',reason:`Brutal FDR ${p.avgFDR.toFixed(1)}`});else if(p.avgFDR>=3.8)risks.push({level:'medium',reason:`Tough FDR ${p.avgFDR.toFixed(1)}`});if(avgMins<45)risks.push({level:'medium',reason:`Rotation risk`});return risks;}
-function renderRiskAnalysis(mp){if(!mp.length){setHTML('riskArea',`<div class="card">${emptyState('','NO SQUAD DATA','Build your team.')}</div>`);return;}const flagged=mp.map(p=>({p,r:getRisk(p)})).filter(x=>x.r.length).sort((a,b)=>(b.r[0].level==='high'?2:1)-(a.r[0].level==='high'?2:1));if(!flagged.length){setHTML('riskArea',`<div class="card">${emptyState('','ALL CLEAR','No risk flags.')}</div>`);return;}setHTML('riskArea',`<div class="card">${flagged.map(({p,r})=>`<div class="risk-item"><div class="risk-bar ${r[0].level==='high'?'risk-high':'risk-medium'}"></div><div><div style="font-weight:700">${p.web_name} <span class="pos-chip pos-${p.posShort}">${p.posShort}</span></div>${r.map(x=>`<div class="risk-reason">${x.reason}</div>`).join('')}</div><div style="margin-left:auto;text-align:right"><div class="stat-label" style="font-size:.56rem">FORM</div><div style="font-family:var(--font-data);font-size:.88rem;color:${r[0].level==='high'?'var(--red)':'var(--amber)'}">${p.form}</div></div></div>`).join('')}</div>`);}
+function renderRiskLook(mp){if(!mp.length){setHTML('riskArea',`<div class="card">${emptyState('','NO SQUAD DATA','Build your team.')}</div>`);return;}const flagged=mp.map(p=>({p,r:getRisk(p)})).filter(x=>x.r.length).sort((a,b)=>(b.r[0].level==='high'?2:1)-(a.r[0].level==='high'?2:1));if(!flagged.length){setHTML('riskArea',`<div class="card">${emptyState('','ALL CLEAR','No risk flags.')}</div>`);return;}setHTML('riskArea',`<div class="card">${flagged.map(({p,r})=>`<div class="risk-item"><div class="risk-bar ${r[0].level==='high'?'risk-high':'risk-medium'}"></div><div><div style="font-weight:700">${p.web_name} <span class="pos-chip pos-${p.posShort}">${p.posShort}</span></div>${r.map(x=>`<div class="risk-reason">${x.reason}</div>`).join('')}</div><div style="margin-left:auto;text-align:right"><div class="stat-label" style="font-size:.56rem">FORM</div><div style="font-family:var(--font-data);font-size:.88rem;color:${r[0].level==='high'?'var(--red)':'var(--amber)'}">${p.form}</div></div></div>`).join('')}</div>`);}
 
 /* ══ PLAYER TABLE ═══════════════════════════════════════════════ */
 function filterPlayers(){S.page=1;renderPlayerTable();}
@@ -1007,13 +1007,13 @@ function saveDraftSquad() {
   const draft = { season: S.bootstrap?.season || 'current', status: result.valid ? 'DRAFT_VALID' : 'DRAFT_INCOMPLETE', playerIds: [...S.myTeam], captainId: S.captainId, viceCaptainId: S.vcaptainId, pickOrder: { ...S.pickOrder }, updatedAt: new Date().toISOString() };
   localStorage.setItem('fpl_cortex_draft', JSON.stringify(draft));
   const area = el('squadDraftNotice');
-  if (area) area.textContent = result.valid ? 'Draft saved locally and ready for analysis.' : 'Draft saved locally. Finish the highlighted validation items before syncing.';
+  if (area) area.textContent = result.valid ? 'Draft saved locally and ready for look.' : 'Draft saved locally. Finish the highlighted validation items before syncing.';
   renderSquadValidation(true);
 }
 
 async function analyseDraftSquad() {
   const result = validateSquad();
-  const area = el('squadAnalysis');
+  const area = el('squadLook');
   if (!area) return;
   if (!result.selected.length) { area.textContent = 'Select players before analysing the draft.'; return; }
   const projected = result.starters.reduce((sum, player) => sum + player.projectedPts, 0) + (result.starters.find(player => player.id === S.captainId)?.projectedPts || 0);
@@ -1053,7 +1053,7 @@ function clearTeam(){if(!confirm('Clear entire squad?'))return;S.myTeam=[];S.sta
 function clampRating(value){return Math.max(0,Math.min(100,Math.round(Number(value)||0)));}
 function teamRatingModel(){
   const mp=myPlayers(), {starters,bench}=getSquadGroups();
-  if(!mp.length)return {total:null,label:'Awaiting squad',summary:'Build or connect a squad to receive a transparent rating.',breakdown:[],recommendations:[],upgrade:null};
+  if(!mp.length)return {total:null,label:'Awaiting squad',summary:'Build or connect a squad to see your team rating.',breakdown:[],recommendations:[],upgrade:null};
   const avg=(arr,fn)=>arr.length?arr.reduce((s,x)=>s+Number(fn(x)||0),0)/arr.length:0;
   const form=clampRating(avg(starters.length?starters:mp,p=>Number(p.formVal||0))*16);
   const xpts=clampRating(avg(starters.length?starters:mp,p=>Number(p.projectedPts||0))*11);
@@ -1066,9 +1066,9 @@ function teamRatingModel(){
   const recommendations=[];
   if(mp.length<15)recommendations.push({tone:'focus',title:`Complete the squad (${mp.length}/15)`,copy:'A full squad gives the model enough cover to judge bench depth and rotation risk.'});
   if(starters.length<11)recommendations.push({tone:'focus',title:`Set your starting XI (${starters.length}/11)`,copy:'Choose the players you expect to start so fixture and captaincy signals are meaningful.'});
-  if(fixture<55)recommendations.push({tone:'fixture',title:'Review the fixture run',copy:'Several likely starters face difficult upcoming fixtures. Check the Fixture Desk before committing.'});
+  if(fixture<55)recommendations.push({tone:'fixture',title:'Check the fixtures',copy:'Several likely starters face difficult upcoming fixtures. Check the Fixture Desk before lock inting.'});
   if(captain<70)recommendations.push({tone:'captain',title:'Revisit the captaincy',copy:'Your current armband is not the strongest model option from the selected XI.'});
-  if(benchQuality<55)recommendations.push({tone:'bench',title:'Strengthen the bench',copy:'Your substitutes offer limited projected cover if a starter misses the gameweek.'});
+  if(benchQuality<55)recommendations.push({tone:'bench',title:'Take another look at the bench',copy:'Your substitutes offer limited projected cover if a starter misses the gameweek.'});
   const flagged=(mp.filter(p=>Number(p.chance_of_playing_next_round||100)<75||p.news).slice(0,2));
   flagged.forEach(p=>recommendations.push({tone:'alert',title:`Check ${p.web_name}`,copy:p.news||`${p.chance_of_playing_next_round}% chance of playing next round. Review before the deadline.`}));
   if(!recommendations.length)recommendations.push({tone:'good',title:'No urgent weakness found',copy:'Your current squad has a balanced profile. Keep monitoring fixtures, news, and captaincy before the deadline.'});
@@ -1077,7 +1077,7 @@ function teamRatingModel(){
   const candidate=candidates[0];
   const upgrade=candidate?{out:weakest.web_name,inn:candidate.web_name,gain:Math.max(.1,Number(candidate.projectedPts||0)-Number(weakest.projectedPts||0))}:null;
   const label=total>=85?'Elite signal':total>=70?'Strong foundation':total>=55?'Promising team':total>=40?'Needs attention':'Early build';
-  const summary=total>=70?'Your squad has a clear base. Focus on one or two high-impact decisions before the deadline.':'The model sees a few areas where a focused change could improve your next gameweek.';
+  const summary=total>=70?'Your squad has a clear base. Focus on one or two high-impact decisions before the deadline.':'A few small changes could make this team stronger next week.';
   return {total,label,summary,breakdown,recommendations,upgrade};
 }
 function renderTeamRating(){
@@ -1086,10 +1086,10 @@ function renderTeamRating(){
   score.textContent=model.total===null?'—':model.total;
   if(label)label.textContent=model.label;
   if(summary)summary.textContent=model.summary;
-  if(recMeta)recMeta.textContent=model.total===null?'Free squad review':'Transparent public-data model';
+  if(recMeta)recMeta.textContent=model.total===null?'Free squad review':'Public data, made simple';
   if(breakdown)breakdown.innerHTML=model.breakdown.length?model.breakdown.map(item=>`<div class="rating-breakdown-row"><div><strong>${item.name}</strong><small>${item.detail}</small></div><span class="rating-bar"><i style="width:${item.score}%"></i></span><b>${item.score}</b></div>`).join(''):'<div class="rating-empty">Your category breakdown will appear here.</div>';
   if(recs)recs.innerHTML=model.recommendations.map(item=>`<div class="rating-recommendation tone-${item.tone}"><span class="rating-rec-mark"></span><div><strong>${item.title}</strong><p>${item.copy}</p></div></div>`).join('');
-  if(model.upgrade){if(upTitle)upTitle.textContent=`Compare ${model.upgrade.out} with ${model.upgrade.inn}`;if(upCopy)upCopy.textContent=`A first-pass public-data comparison estimates +${model.upgrade.gain.toFixed(1)} xPts for the next gameweek. Open Transfer Desk to review the move.`;}else{if(upTitle)upTitle.textContent='Want to test a move?';if(upCopy)upCopy.textContent='Cortex Plus will compare candidate transfers against your current rating and show the projected uplift.';}
+  if(model.upgrade){if(upTitle)upTitle.textContent=`Compare ${model.upgrade.out} with ${model.upgrade.inn}`;if(upCopy)upCopy.textContent=`A first-pass public-data comparison estimates +${model.upgrade.gain.toFixed(1)} xPts for the next gameweek. Open Transfer Desk to review the move.`;}else{if(upTitle)upTitle.textContent='Want to test a move?';if(upCopy)upCopy.textContent='Cortex Plus will compare candidate transfers against your current rating and show the possible points gain.';}
   const centre=el('teamCentreScore');if(centre&&model.total!==null)centre.textContent=model.total;
 }
 function renderMyTeam(){
@@ -1222,7 +1222,7 @@ function buildSquad(budget,priority,size=15){
   setTimeout(()=>{el('addAutoSquadBtn')?.addEventListener('click',()=>{S.myTeam=sel.map(p=>p.id);saveTeam();renderPlayerTable();renderMyTeam();renderDashboard();alert(`Added ${sel.length} players!`);});},100);
   return html;
 }
-function runWildcard(){const area=el('wildcardResult');if(!area)return;area.innerHTML='<div style="color:var(--text-sub);font-size:.8rem;padding:.5rem">Generating...</div>';setTimeout(()=>{const startGW=S.nextGW||(S.currentGW?S.currentGW+1:1);S.players=S.players.map(p=>{let sc=0;for(let gw=startGW;gw<startGW+5;gw++){const fx=S.allFixtures.filter(f=>f.event===gw&&(f.team_h===p.team||f.team_a===p.team));if(!fx.length)continue;const avg=fx.reduce((s,f)=>s+(f.team_h===p.team?f.team_h_difficulty:f.team_a_difficulty),0)/fx.length;sc+=p.formVal*fdrMult(avg);}return{...p,wcScore:sc};});area.innerHTML=`<div style="font-family:var(--font-data);font-size:.62rem;color:var(--text-sub);margin-bottom:.5rem">Optimised for GW${startGW}–GW${startGW+4}</div>${buildSquad(100,'form',15)}`;},100);}
+function runWildcard(){const area=el('wildcardResult');if(!area)return;area.innerHTML='<div style="color:var(--text-sub);font-size:.8rem;padding:.5rem">Generating...</div>';setTimeout(()=>{const startGW=S.nextGW||(S.currentGW?S.currentGW+1:1);S.players=S.players.map(p=>{let sc=0;for(let gw=startGW;gw<startGW+5;gw++){const fx=S.allFixtures.filter(f=>f.event===gw&&(f.team_h===p.team||f.team_a===p.team));if(!fx.length)continue;const avg=fx.reduce((s,f)=>s+(f.team_h===p.team?f.team_h_difficulty:f.team_a_difficulty),0)/fx.length;sc+=p.formVal*fdrMult(avg);}return{...p,wcScore:sc};});area.innerHTML=`<div style="font-family:var(--font-data);font-size:.62rem;color:var(--text-sub);margin-bottom:.5rem">Set up for GW${startGW}–GW${startGW+4}</div>${buildSquad(100,'form',15)}`;},100);}
 
 /* ══ CHIP PLANNER (#3) ══════════════════════════════════════════ */
 function renderChipPlanner(){
@@ -2385,7 +2385,7 @@ function updateAIHeroCard(entry, captainPick) {
       const pct = rank ? Math.round((1 - rank / 12000000) * 100) : null;
       insightEl.innerHTML = pct
         ? 'Your projected score is above<br><strong>' + pct + '%</strong> of managers this week.'
-        : 'Your team is connected. Check your AI analysis below.';
+        : 'Your team is connected. Check your AI look below.';
     }
   }
   if (captainPick) {
@@ -3386,7 +3386,7 @@ function draftEntryRows(data){const source=data?.entries||data?.league?.entries|
 function draftBootstrapPlayers(){const d=draftIntelData(),elements=d.bootstrap?.elements||d.bootstrap?.players||[];return draftArray(elements);}
 function draftWatchlistIds(){try{return JSON.parse(localStorage.getItem('fpl_draft_watchlist')||'[]').map(Number).filter(Boolean);}catch{return[];}}
 function saveDraftWatchlist(ids){try{localStorage.setItem('fpl_draft_watchlist',JSON.stringify([...new Set(ids)]));}catch{}}
-async function loadDraftIntelligence(){
+async function loadDraftTools(){
   const leagueId=String(el('draftLeagueIdInput')?.value||'').replace(/\D/g,'');
   const entryId=String(el('draftEntryIdInput')?.value||'').replace(/\D/g,'');
   const d=S.draftIntel={...draftIntelData(),leagueId,entryId,loaded:false};
@@ -3398,10 +3398,10 @@ async function loadDraftIntelligence(){
     if(leagueId){const res=await draftFetch('draft-league-details',{leagueId});if(res.ok)d.league=(await res.json()).data||null;}
     if(entryId){const res=await draftFetch('draft-entry-public',{entryId});if(res.ok)d.entry=(await res.json()).data||null;}
     if(d.game?.current_event||d.game?.next_event){const event=Number(d.game.current_event||d.game.next_event);const res=await draftFetch('draft-live',{event});if(res.ok)d.live=(await res.json()).data||null;}
-    d.loaded=true;setText('draftIntelStatus',d.league||d.entry?'Public Draft data loaded':'Player data loaded');renderDraftIntelligence();
+    d.loaded=true;setText('draftIntelStatus',d.league||d.entry?'Public Draft data loaded':'Player data loaded');renderDraftTools();
   }catch(error){setText('draftIntelStatus','Could not load Draft data');const area=el('draftIntelArea');if(area)area.innerHTML='<div class="draft-intel-empty"><strong>Draft data is unavailable right now.</strong><span>Try again or continue on the official Draft site.</span></div>';}
 }
-function renderDraftIntelligence(){
+function renderDraftTools(){
   const area=el('draftIntelArea');if(!area)return;const d=draftIntelData();
   if(d.view==='watchlist')return renderDraftWatchlist(area);
   if(d.view==='waivers')return renderDraftTransactions(area,'waivers');
