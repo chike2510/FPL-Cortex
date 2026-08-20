@@ -426,6 +426,7 @@ function attachListeners() {
   on('teamCentreTeamBtn', 'click', () => window.goTab?.('myteam'));
   on('teamRatingCompareBtn', 'click', () => handlePlusFeature('transfer_compare'));
   on('previewFormationSelect', 'change', e => setPreviewFormation(e.target.value));
+  on('inlineFormationSelect', 'change', e => setPreviewFormation(e.target.value));
   on('previewChipSelect', 'change', e => setPreviewChip(e.target.value));
   el('loginModalClose')?.addEventListener('click', closeModal);
   
@@ -568,8 +569,8 @@ function processPlayer(p) {
   const ict = parseFloat(p.ict_index)||0;
   if (p.element_type===3||p.element_type===4) proj+=(ict/100)*0.8;
   if (p.element_type===1||p.element_type===2) { const cs=avgFDR<=2?0.5:avgFDR<=3?0.35:0.2; proj+=cs*(p.element_type===1?6:4); }
-  const ep = parseFloat(p.ep_next)||0; if (ep>0) proj=proj*0.4+ep*0.6;
-  return { ...p, teamId:Number(p.team||0), teamName:team.name||'—', teamShort:team.short_name||'—', posShort:pos.short||'—', price:p.now_cost/10, formVal:form, projectedPts:Math.round(proj*10)/10, avgFDR, upcomingFixtures:uf };
+  const ep = parseFloat(p.ep_next); const officialEp = Number.isFinite(ep) && ep>0 ? ep : null; const finalProj = officialEp ?? proj;
+  return { ...p, teamId:Number(p.team||0), teamName:team.name||'—', teamShort:team.short_name||'—', posShort:pos.short||'—', price:p.now_cost/10, formVal:form, projectedPts:Math.round(finalProj*10)/10, projectedSource:officialEp?'official_ep_next':'cortex_fallback', avgFDR, upcomingFixtures:uf };
 }
 function fdrMult(fdr) { return fdr<=1.5?1.5:fdr<=2.5?1.25:fdr<=3.5?1.0:fdr<=4.5?0.75:0.55; }
 
@@ -840,7 +841,7 @@ function getSquadGroups() {
     S.starterIds=starters.map(p=>p.id);
   }
   const starterSet=new Set(starters.map(p=>p.id));
-  const bench=mp.filter(p=>!starterSet.has(p.id)).sort(rank).slice(0,4);
+  const bench=mp.filter(p=>!starterSet.has(p.id)).sort((a,b)=>{const ag=a.posShort==='GKP'?0:1,bg=b.posShort==='GKP'?0:1;return ag-bg||rank(a,b);}).slice(0,4);
   const byPos={GKP:[],DEF:[],MID:[],FWD:[]}; starters.forEach(p=>{if(byPos[p.posShort])byPos[p.posShort].push(p);});
   const formation=starters.length===11?`${byPos.DEF.length}-${byPos.MID.length}-${byPos.FWD.length}`:'—';
   return{starters,bench,formation,byPos};
@@ -848,7 +849,7 @@ function getSquadGroups() {
 
 function setPreviewFormation(formation){S.previewFormation=legalFormation(formation);S.starterIds=[];saveTeam();renderMyTeam();renderDashboard();}
 function setPreviewChip(chip){S.previewChip=['none','wildcard','freehit','bboost','3xc'].includes(chip)?chip:'none';saveTeam();renderPreviewControls();}
-function renderPreviewControls(){const f=el('previewFormationSelect'),c=el('previewChipSelect'),status=el('chipPreviewStatus');if(f)f.value=legalFormation(S.previewFormation);if(c)c.value=S.previewChip||'none';if(status)status.textContent=S.officialChipUsed?`Official team data · ${({'wildcard':'Wildcard','freehit':'Free Hit','bboost':'Bench Boost','3xc':'Triple Captain'}[S.officialChipUsed]||S.officialChipUsed)} used this gameweek.`:S.previewChip&&S.previewChip!=='none'?`Preview only · ${({'wildcard':'Wildcard','freehit':'Free Hit','bboost':'Bench Boost','3xc':'Triple Captain'}[S.previewChip])} selected.`:'Preview only · official chip usage appears after team sync.';}
+function renderPreviewControls(){const f=el('previewFormationSelect'),inline=el('inlineFormationSelect'),c=el('previewChipSelect'),status=el('chipPreviewStatus');if(f)f.value=legalFormation(S.previewFormation);if(inline)inline.value=legalFormation(S.previewFormation);if(c)c.value=S.previewChip||'none';setText('xpMethodNote', S.players.some(p=>p.projectedSource==='official_ep_next') ? 'xP source: official FPL ep_next · fallback estimate only for missing projections.' : 'xP source: Cortex fallback estimate · official FPL ep_next not available yet.');if(status)status.textContent=S.officialChipUsed?`Official team data · ${({'wildcard':'Wildcard','freehit':'Free Hit','bboost':'Bench Boost','3xc':'Triple Captain'}[S.officialChipUsed]||S.officialChipUsed)} used this gameweek.`:S.previewChip&&S.previewChip!=='none'?`Preview only · ${({'wildcard':'Wildcard','freehit':'Free Hit','bboost':'Bench Boost','3xc':'Triple Captain'}[S.previewChip])} selected.`:'Preview only · official chip usage appears after team sync.';}
 /* ══ CAPTAIN AI ═════════════════════════════════════════════════ */
 function capScore(p){return(p.formVal*3+(parseFloat(p.ict_index)||0)/20+p.projectedPts)*fdrMult(p.avgFDR);}
 function renderCaptainSuggestions(pool){
@@ -1130,10 +1131,12 @@ function ensurePickOrder(){
   [...starters,...bench].forEach((p,i)=>{S.pickOrder[p.id]=i+1;});
 }
 function toggleSubstitutionMode(){S.substitutionMode=!S.substitutionMode;S.swapPid=null;updateSubstitutionUI();renderMyTeam();}
-function updateSubstitutionUI(){const btn=el('substituteModeBtn');if(btn){btn.classList.toggle('is-active',S.substitutionMode);btn.textContent=S.substitutionMode?'Exit swap mode':'Swap players';}const area=el('pitchArea');if(area)area.classList.toggle('swap-mode',S.substitutionMode);const hint=el('lineupHint');if(hint)hint.textContent=S.substitutionMode?(S.swapPid?'Now choose a bench player to bring in.':'Choose one starter to sub out.'):'Tap Swap players to reorder the XI and bench.';}
+function updateSubstitutionUI(){const btn=el('substituteModeBtn');if(btn){btn.classList.toggle('is-active',S.substitutionMode);btn.textContent=S.substitutionMode?'Exit swap mode':'Swap players';}const area=el('pitchArea');if(area)area.classList.toggle('swap-mode',S.substitutionMode);const hint=el('lineupHint');if(hint)hint.textContent=S.substitutionMode?(S.swapPid?'Choose the incoming player — or another bench player to reorder the bench.':'Choose one starter to sub out, or choose two bench players to reorder them.'):'Tap Swap players to reorder the XI and bench.';}
 function swapSquadPlayers(first,second){
   if(!first||!second||first===second)return;
-  const{starters,bench}=getSquadGroups();const starter=starters.find(p=>p.id===first),incoming=bench.find(p=>p.id===second);
+  const{starters,bench}=getSquadGroups();const firstStarter=starters.find(p=>p.id===first),secondStarter=starters.find(p=>p.id===second),firstBench=bench.find(p=>p.id===first),secondBench=bench.find(p=>p.id===second);
+  if(firstBench&&secondBench){if((firstBench.posShort==='GKP')!==(secondBench.posShort==='GKP')){S.swapPid=null;updateSubstitutionUI();if(el('lineupHint'))el('lineupHint').textContent='The first bench slot is reserved for a goalkeeper.';return;}ensurePickOrder();const a=S.pickOrder[first],b=S.pickOrder[second];S.pickOrder[first]=b;S.pickOrder[second]=a;S.swapPid=null;saveTeam();renderMyTeam();return;}
+  const starter=firstStarter,incoming=secondBench;
   if(!starter||!incoming){S.swapPid=null;updateSubstitutionUI();return;}
   const nextIds=starters.map(p=>p.id).filter(id=>id!==first).concat(second);const counts=nextIds.reduce((a,id)=>{const p=S.players.find(x=>x.id===id);if(p)a[p.posShort]=(a[p.posShort]||0)+1;return a;},{GKP:0,DEF:0,MID:0,FWD:0});const needs=formationNeeds(legalFormation(S.previewFormation));
   if(counts.GKP!==needs.GKP||counts.DEF!==needs.DEF||counts.MID!==needs.MID||counts.FWD!==needs.FWD){S.swapPid=null;updateSubstitutionUI();if(el('lineupHint'))el('lineupHint').textContent=`That swap does not fit ${S.previewFormation}. Choose a player in the same position or change formation.`;return;}
