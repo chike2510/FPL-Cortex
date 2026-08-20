@@ -822,6 +822,8 @@ function svgLine(data, labels, color='var(--green)', height=90) {
 /* ══ SQUAD GROUPING ═════════════════════════════════════════════ */
 function formationNeeds(formation){const [DEF,MID,FWD]=(formation||'4-4-2').split('-').map(Number);return{GKP:1,DEF:DEF||4,MID:MID||4,FWD:FWD||2};}
 function legalFormation(formation){return ['3-4-3','3-5-2','4-3-3','4-4-2','4-5-1','5-3-2','5-4-1','5-2-3'].includes(formation)?formation:'4-4-2';}
+function formationFromCounts(counts){return `${counts.DEF}-${counts.MID}-${counts.FWD}`;}
+function legalFormationCounts(counts){return counts.GKP===1&&counts.DEF>=3&&counts.DEF<=5&&counts.MID>=2&&counts.MID<=5&&counts.FWD>=1&&counts.FWD<=3&&counts.DEF+counts.MID+counts.FWD===10;}
 function getSquadGroups() {
   const mp=myPlayers(); if(!mp.length)return{starters:[],bench:[],formation:'—',byPos:{GKP:[],DEF:[],MID:[],FWD:[]}};
   const needs=formationNeeds(legalFormation(S.previewFormation));
@@ -1131,7 +1133,7 @@ function ensurePickOrder(){
   [...starters,...bench].forEach((p,i)=>{S.pickOrder[p.id]=i+1;});
 }
 function toggleSubstitutionMode(){S.substitutionMode=!S.substitutionMode;S.swapPid=null;updateSubstitutionUI();renderMyTeam();}
-function updateSubstitutionUI(){const btn=el('substituteModeBtn');if(btn){btn.classList.toggle('is-active',S.substitutionMode);btn.textContent=S.substitutionMode?'Exit swap mode':'Swap players';}const area=el('pitchArea');if(area)area.classList.toggle('swap-mode',S.substitutionMode);const hint=el('lineupHint');if(hint)hint.textContent=S.substitutionMode?(S.swapPid?'Choose the incoming player — or another bench player to reorder the bench.':'Choose one starter to sub out, or choose two bench players to reorder them.'):'Tap Swap players to reorder the XI and bench.';}
+function updateSubstitutionUI(){const btn=el('substituteModeBtn');if(btn){btn.classList.toggle('is-active',S.substitutionMode);btn.textContent=S.substitutionMode?'Exit swap mode':'Swap players';}const area=el('pitchArea');if(area)area.classList.toggle('swap-mode',S.substitutionMode);const hint=el('lineupHint');if(hint)hint.textContent=S.substitutionMode?(S.swapPid?'Choose the player to bring in.':'Choose one starter to sub out.'):'Tap Swap players to reorder the XI and bench.';}
 function swapSquadPlayers(first,second){
   if(!first||!second||first===second)return;
   const{starters,bench}=getSquadGroups();const firstStarter=starters.find(p=>p.id===first),secondStarter=starters.find(p=>p.id===second),firstBench=bench.find(p=>p.id===first),secondBench=bench.find(p=>p.id===second);
@@ -1139,8 +1141,8 @@ function swapSquadPlayers(first,second){
   const starter=firstStarter,incoming=secondBench;
   if(!starter||!incoming){S.swapPid=null;updateSubstitutionUI();return;}
   const nextIds=starters.map(p=>p.id).filter(id=>id!==first).concat(second);const counts=nextIds.reduce((a,id)=>{const p=S.players.find(x=>x.id===id);if(p)a[p.posShort]=(a[p.posShort]||0)+1;return a;},{GKP:0,DEF:0,MID:0,FWD:0});const needs=formationNeeds(legalFormation(S.previewFormation));
-  if(counts.GKP!==needs.GKP||counts.DEF!==needs.DEF||counts.MID!==needs.MID||counts.FWD!==needs.FWD){S.swapPid=null;updateSubstitutionUI();if(el('lineupHint'))el('lineupHint').textContent=`That swap does not fit ${S.previewFormation}. Choose a player in the same position or change formation.`;return;}
-  S.starterIds=nextIds;ensurePickOrder();S.swapPid=null;saveTeam();renderMyTeam();renderDashboard();
+  if(!legalFormationCounts(counts)){S.swapPid=null;updateSubstitutionUI();if(el('lineupHint'))el('lineupHint').textContent='That swap would create an illegal formation. Choose another player.';return;}
+  S.previewFormation=legalFormation(formationFromCounts(counts));S.starterIds=nextIds;ensurePickOrder();S.swapPid=null;saveTeam();renderMyTeam();renderDashboard();
 }
 
 
