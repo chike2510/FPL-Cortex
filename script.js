@@ -559,18 +559,70 @@ function processBootstrap(data) {
   } catch (err) { console.error('Bootstrap:', err); return false; }
 }
 
+function clamp01(value) { return Math.max(0, Math.min(1, Number(value) || 0)); }
+function clampNum(value, min, max) { return Math.max(min, Math.min(max, Number(value) || 0)); }
+function poissonTailAtLeast(mean, threshold) {
+  const mu = Math.max(0, Number(mean) || 0), k = Math.max(1, Math.floor(Number(threshold) || 1));
+  let cumulative = Math.exp(-mu), term = cumulative;
+  for (let i = 1; i < k; i++) { term *= mu / i; cumulative += term; }
+  return clamp01(1 - cumulative);
+}
+function playerAvailability(p) {
+  const status = String(p.status || 'a').toLowerCase();
+  const statusAppearance = { a: 1, d: .78, u: .58, i: .18, n: .35 }[status] ?? .82;
+  const chance = p.chance_of_playing_next_round == null ? 1 : clampNum(Number(p.chance_of_playing_next_round) / 100, 0, 1);
+  const minutes = Number(p.minutes) || 0, starts = Number(p.starts) || 0;
+  const historicalAppearances = Math.max(1, minutes / 90);
+  let startShare = minutes > 0 ? clampNum(starts / historicalAppearances, .12, .98) : .56;
+  const isNewOrUnproven = minutes < 450 || (starts === 0 && minutes === 0);
+  if (isNewOrUnproven) startShare *= .84;
+  const startProb = clamp01(Math.min(statusAppearance, chance, startShare));
+  const appearanceProb = clamp01(Math.min(statusAppearance, chance, Math.max(startProb, .45 * statusAppearance)));
+  const expectedMinutes = clampNum(startProb * 90 + Math.max(0, appearanceProb - startProb) * 24, 0, 90);
+  return { startProb, appearanceProb, expectedMinutes };
+}
 function processPlayer(p) {
   const team = S.teams[p.team]||{}, pos = S.positions[p.element_type]||{};
   const uf = getUpcomingFixtures(p.team, 3);
   const avgFDR = uf.length ? uf.reduce((s,f) => s+f.difficulty,0)/uf.length : 3;
-  const form = parseFloat(p.form)||0, fdrMul = fdrMult(avgFDR);
-  const avgMins = p.minutes/Math.max(1,S.currentGW||1), minFac = 0.5+0.5*Math.min(1,avgMins/90);
-  let proj = form*fdrMul*minFac;
+  const fixtureEase = clampNum(1.08 + (3 - avgFDR) * .075, .78, 1.22);
+  const opponentAttack = uf.length ? uf.reduce((sum, f) => sum + Number(S.teams[f.opponentId]?.strength_attack || 1000), 0) / uf.length : 1000;
+  const opponentDefence = uf.length ? uf.reduce((sum, f) => sum + Number(S.teams[f.opponentId]?.strength_defence || 1000), 0) / uf.length : 1000;
+  const attackStrength = Number(team.strength_attack || 1000);
+  const defenceStrength = Number(team.strength_defence || 1000);
+  const attackFactor = clampNum(.9 + attackStrength / Math.max(1, opponentDefence) * .18 + (3 - avgFDR) * .035, .72, 1.28);
+  const defenceFactor = clampNum(.9 + defenceStrength / Math.max(1, opponentAttack) * .16, .72, 1.22);
+  const availability = playerAvailability(p);
+  const expectedMinutes = availability.expectedMinutes;
+  const minutesShare = expectedMinutes / 90;
+  const form = parseFloat(p.form)||0;
+  const ppg = clampNum(parseFloat(p.points_per_game)||0, 0, 8);
   const ict = parseFloat(p.ict_index)||0;
-  if (p.element_type===3||p.element_type===4) proj+=(ict/100)*0.8;
-  if (p.element_type===1||p.element_type===2) { const cs=avgFDR<=2?0.5:avgFDR<=3?0.35:0.2; proj+=cs*(p.element_type===1?6:4); }
-  const ep = parseFloat(p.ep_next); const officialEp = Number.isFinite(ep) && ep>0 ? ep : null; const ppg = Math.max(0,Math.min(8,parseFloat(p.points_per_game)||0)); const historyAnchor = ppg || 2.5; const fixtureLift = avgFDR<=1.5?.4:avgFDR<=2.5?.22:avgFDR<=3.5?0:avgFDR<=4.5?-.18:-.38; const roleScale = p.element_type===4?.95:p.element_type===3?.78:p.element_type===2?.48:.26; const roleLift = Math.min(roleScale,(ict/350)*roleScale); const regularityLift = Math.min(.28,(Number(p.minutes)||0)/3000*.28); const formLift = form>0 ? Math.max(-.45,Math.min(.55,(form-historyAnchor)*.28)) : 0; const scaledProj = historyAnchor*.45 + (officialEp??proj)*.55 + fixtureLift + roleLift + regularityLift + formLift; const availability = p.chance_of_playing_next_round!=null ? Number(p.chance_of_playing_next_round)/100 : 1; const riskFactor = availability<.75 ? .78 : availability<.9 ? .9 : 1; const finalProj = officialEp !== null ? Math.max(officialEp,scaledProj*riskFactor) : Math.max(proj,scaledProj*riskFactor);
-  return { ...p, teamId:Number(p.team||0), teamName:team.name||'—', teamShort:team.short_name||'—', posShort:pos.short||'—', price:p.now_cost/10, formVal:form, projectedPts:Math.round(finalProj*10)/10, projectedSource:officialEp?'official_ep_next':'cortex_fallback', avgFDR, upcomingFixtures:uf };
+  const xg90 = Math.max(0, parseFloat(p.expected_goals_per_90) || (Number(p.minutes) > 0 ? (Number(p.goals_scored)||0) / Math.max(1, Number(p.minutes)||1) * 90 : 0));
+  const xa90 = Math.max(0, parseFloat(p.expected_assists_per_90) || (Number(p.minutes) > 0 ? (Number(p.assists)||0) / Math.max(1, Number(p.minutes)||1) * 90 : 0));
+  const expectedGoals = xg90 * minutesShare * attackFactor;
+  const expectedAssists = xa90 * minutesShare * attackFactor;
+  const goalPoints = p.element_type === 1 ? 10 : p.element_type === 2 ? 6 : p.element_type === 3 ? 5 : 4;
+  const goalComponent = expectedGoals * goalPoints;
+  const assistComponent = expectedAssists * 3;
+  const penaltyOrder = Number(p.penalties_order) || 0;
+  const penaltyRate = penaltyOrder === 1 ? .22 : penaltyOrder === 2 ? .08 : 0;
+  const penaltyComponent = penaltyRate * minutesShare * attackFactor * goalPoints;
+  const appearanceComponent = availability.appearanceProb + availability.startProb * (expectedMinutes >= 60 ? 1 : .25);
+  const csBase = p.element_type <= 2 ? .34 : p.element_type === 3 ? .12 : 0;
+  const cleanSheetComponent = csBase * defenceFactor * fixtureEase * availability.appearanceProb * (expectedMinutes >= 60 ? 1 : .35);
+  const defconRate = Math.max(0, parseFloat(p.defensive_contribution_per_90) || 0);
+  const defconThreshold = p.element_type === 2 ? 10 : p.element_type === 3 ? 12 : 999;
+  const defconMean = defconRate * minutesShare * clampNum(1 + (avgFDR - 3) * .08, .82, 1.22);
+  const defconComponent = defconThreshold < 999 ? 2 * poissonTailAtLeast(defconMean, defconThreshold) : 0;
+  const bonusRate = Number(p.minutes) > 0 ? (Number(p.bonus)||0) / Math.max(1, Number(p.minutes) / 90) : 0;
+  const bonusComponent = clampNum(bonusRate * minutesShare * attackFactor * (form > 0 ? 1.05 : 1), 0, 1.15);
+  const appearanceAndEvents = appearanceComponent + goalComponent + assistComponent + penaltyComponent + cleanSheetComponent + defconComponent + bonusComponent;
+  const officialEp = Number.isFinite(parseFloat(p.ep_next)) && parseFloat(p.ep_next) > 0 ? parseFloat(p.ep_next) : null;
+  const formAnchor = ppg * .12 + Math.max(0, form) * .06;
+  const componentProjection = appearanceAndEvents + formAnchor + Math.min(.35, (ict / 350) * .35);
+  const finalProj = officialEp !== null ? Math.max(officialEp, componentProjection * .82 + officialEp * .18) : componentProjection;
+  return { ...p, teamId:Number(p.team||0), teamName:team.name||'—', teamShort:team.short_name||'—', posShort:pos.short||'—', price:p.now_cost/10, formVal:form, projectedPts:Math.round(clampNum(finalProj, 0, 15)*10)/10, projectedSource:officialEp?'component_plus_official':'component_projection', avgFDR, upcomingFixtures:uf, projection:{ expectedGoals, expectedAssists, penaltyPoints:penaltyComponent, expectedMinutes, startProb:availability.startProb, appearanceProb:availability.appearanceProb, cleanSheetPoints:cleanSheetComponent, defconPoints:defconComponent, bonusPoints:bonusComponent } };
 }
 function fdrMult(fdr) { return fdr<=1.5?1.5:fdr<=2.5?1.25:fdr<=3.5?1.0:fdr<=4.5?0.75:0.55; }
 
@@ -578,8 +630,8 @@ function getUpcomingFixtures(teamId, count=3) {
   const startGW = S.nextGW||(S.currentGW?S.currentGW+1:1); const res = [];
   for (const f of S.allFixtures) {
     if (res.length>=count) break; if (!f.event||f.event<startGW||f.finished) continue;
-    if (f.team_h===teamId) res.push({opponent:S.teams[f.team_a]?.short_name||'?',home:true,difficulty:f.team_h_difficulty,gw:f.event});
-    else if (f.team_a===teamId) res.push({opponent:S.teams[f.team_h]?.short_name||'?',home:false,difficulty:f.team_a_difficulty,gw:f.event});
+    if (f.team_h===teamId) res.push({opponent:S.teams[f.team_a]?.short_name||'?',opponentId:f.team_a,home:true,difficulty:f.team_h_difficulty,gw:f.event});
+    else if (f.team_a===teamId) res.push({opponent:S.teams[f.team_h]?.short_name||'?',opponentId:f.team_h,home:false,difficulty:f.team_a_difficulty,gw:f.event});
   }
   return res;
 }
@@ -1096,8 +1148,10 @@ function renderMyTeam(){
   const mp=myPlayers();const{starters,bench,formation,byPos}=getSquadGroups();
   const spent=mp.reduce((s,p)=>s+p.price,0);const cap=starters.find(p=>p.id===S.captainId);
   setText('squadCount',mp.length);setText('squadValue',`£${spent.toFixed(1)}m`);setText('formationDisplay',mp.length>=11?formation:'—');
-  const proj=starters.reduce((s,p)=>s+p.projectedPts,0)+(cap?cap.projectedPts:0);
+  const benchBoostActive = ['bench_boost','benchboost','bboost','bb'].includes(String(S.previewChip||'').toLowerCase()) && Number(S.currentGW||1) === 1;
+  const proj=starters.reduce((s,p)=>s+p.projectedPts,0)+(cap?cap.projectedPts:0)+(benchBoostActive?bench.reduce((s,p)=>s+p.projectedPts,0):0);
   setText('squadProjPts',Math.round(proj*10)/10);setText('squadInfoCount',`${mp.length}/15`);setText('squadInfoValue',`£${spent.toFixed(1)}m`);setText('squadInfoXpts',starters.length?(proj.toFixed(1)):'—');
+  setText('squadProjLabel', benchBoostActive ? 'GW1 xPts · Bench Boost included' : 'Starting XI xPts');
   setText('lineupStatus',`${starters.length}/11 starters · ${bench.length} bench`);
   renderPreviewControls();
   const draftBudget=el('draftBudgetLabel');if(draftBudget)draftBudget.textContent=`£${spent.toFixed(1)}m / £${squadRules().budget.toFixed(1)}m`;
