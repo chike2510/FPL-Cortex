@@ -1,51 +1,212 @@
 <!doctype html>
 <html lang="en-GB">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>FPL Cortex: your unofficial FPL analyst</title>
-  <meta name="description" content="Captain picks, transfer projections, live rank and an AI analyst for Fantasy Premier League. No FPL password needed." />
-  <meta name="theme-color" content="#0B1220" />
-  <link rel="manifest" href="/manifest.json" />
-  <link rel="icon" href="/icons/icon-192.png" />
-  <meta property="og:title" content="FPL Cortex" />
-  <meta property="og:description" content="Make the next FPL move with confidence." />
-  <style>
-    :root{--bg:#0B1220;--card:#111A2E;--line:#1F2A44;--text:#F1F5F9;--sub:#94A3B8;--accent:#A3E635;--r:14px;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);line-height:1.5}
-    .wrap{max-width:1040px;margin:0 auto;padding:0 20px}
-    header{display:flex;justify-content:space-between;align-items:center;padding:18px 0}
-    .logo{font-weight:800;letter-spacing:.02em}.logo b{color:var(--accent)}
-    .btn{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 22px;border-radius:var(--r);font-weight:700;text-decoration:none;border:1px solid var(--line);color:var(--text)}
-    .btn.primary{background:var(--accent);color:#0B1220;border-color:var(--accent)}
-    .hero{padding:56px 0 40px}h1{font-size:clamp(2.2rem,6vw,3.6rem);line-height:1.05;margin:0 0 16px;letter-spacing:-.02em}
-    .hero p{color:var(--sub);font-size:1.15rem;max-width:560px}.cta{display:flex;gap:12px;flex-wrap:wrap;margin-top:24px}
-    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:40px 0}
-    .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:20px}.card h3{margin:0 0 6px}.card p{margin:0;color:var(--sub)}
-    .plus{border-color:var(--accent)}.price{font-size:2rem;font-weight:800}.tag{color:var(--accent);font-weight:700;font-size:.85rem;text-transform:uppercase;letter-spacing:.08em}
-    footer{border-top:1px solid var(--line);padding:24px 0 40px;color:var(--sub);font-size:.9rem}
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>FPL Cortex: your unofficial FPL analyst</title>
+<meta name="description" content="Rate your squad, plan transfers and chips, track live rank and ask an AI analyst, all from live Fantasy Premier League data. No FPL password needed." />
+<meta name="theme-color" content="#111111" />
+<link rel="manifest" href="/manifest.json" />
+<link rel="icon" href="/icons/icon-192.png" />
+<meta property="og:title" content="FPL Cortex" />
+<meta property="og:description" content="Your unofficial FPL analyst, built on live data." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Smooch+Sans:wght@400..800&display=swap" />
+<style>
+:root{--bg:#111;--card:#1a1a1a;--line:#2a2a2a;--text:#f3f0ec;--sub:#a29c95;--accent:#FF7A1A;--r:12px;font-family:"Smooch Sans",ui-sans-serif,system-ui,sans-serif}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font-size:18px;line-height:1.35;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;background:repeating-conic-gradient(from 0deg at 50% 18%,rgba(255,255,255,.045) 0deg .25deg,transparent .25deg 7.5deg);-webkit-mask-image:radial-gradient(ellipse 90% 70% at 50% 18%,transparent 6%,#000 30%,transparent 85%);mask-image:radial-gradient(ellipse 90% 70% at 50% 18%,transparent 6%,#000 30%,transparent 85%)}
+a{color:inherit}
+.wrap{max-width:1040px;margin:0 auto;padding:0 20px}
+.pill{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 20px;border-radius:999px;font:600 1.1rem/1 inherit;font-family:inherit;text-decoration:none;border:1.5px solid var(--text);color:var(--text);background:transparent;cursor:pointer;white-space:nowrap}
+.pill.solid{background:var(--accent);border-color:var(--accent);color:#1a0d03}
+.pill.sm{min-height:36px;padding:0 16px;font-size:1rem}
+.pill.block{width:100%;justify-content:center}
+header{position:sticky;top:0;z-index:20;background:rgba(17,17,17,.88);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.bar{display:flex;align-items:center;gap:12px;height:60px}
+.mark{font-weight:800;font-size:1.75rem;letter-spacing:.04em;color:var(--accent);text-decoration:none;margin-right:auto}
+.burger{width:40px;height:40px;border:0;background:none;color:var(--text);cursor:pointer;display:grid;place-items:center}
+.burger svg{width:24px;height:24px}
+.drawer{position:fixed;inset:0;z-index:40;background:#141414;transform:translateX(100%);transition:transform .25s ease;overflow-y:auto;padding:0 20px 32px;visibility:hidden}
+.drawer.open{transform:none;visibility:visible}
+.drawer .bar{margin-bottom:8px}
+details{border:1px solid var(--line);border-radius:var(--r);background:var(--card);margin-bottom:10px}
+summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:12px 14px;font-size:1.35rem;font-weight:600}
+summary::-webkit-details-marker{display:none}
+summary::after{content:'';width:9px;height:9px;border-right:2px solid var(--sub);border-bottom:2px solid var(--sub);transform:rotate(45deg) translateY(-3px);transition:transform .2s}
+details[open] summary::after{transform:rotate(-135deg)}
+details nav{margin:0 10px 10px;padding:6px 12px;border-radius:10px;background:#222;border:1px solid var(--line)}
+details nav a{display:block;padding:8px 0;text-decoration:none;font-size:1.15rem}
+details nav a small{display:block;color:var(--sub);font-size:.9rem}
+.hero{padding:28px 0 8px;display:grid;gap:18px}
+.eyebrow{color:var(--accent);font-weight:600;letter-spacing:.08em;text-transform:uppercase;font-size:.9rem}
+h1{font-size:clamp(2.6rem,11vw,4.2rem);line-height:.95;margin:6px 0 10px;font-weight:800}
+.lede{color:#d8d2cb;font-size:1.2rem;margin:0 0 18px;max-width:34ch}
+.ctas{display:flex;gap:10px;flex-wrap:wrap}
+.stat{text-align:center;position:relative;padding:12px 0 0}
+.stat::after{content:'';position:absolute;left:15%;right:15%;top:15%;height:60%;z-index:-1;background:radial-gradient(closest-side,rgba(255,106,0,.2),transparent)}
+.glow{position:relative;display:inline-block;font-weight:800;line-height:.9;font-size:clamp(76px,24vw,128px);color:#3a1806;text-shadow:1px 1px 0 #5a2507,2px 2px 0 #4a1e06,3px 3px 0 #3b1805,4px 5px 0 #2c1204,0 0 24px rgba(255,106,0,.6),0 0 64px rgba(255,106,0,.35)}
+.glow::after{content:attr(data-v);position:absolute;left:0;top:0;text-shadow:none;background:linear-gradient(175deg,#FFF1D6 0%,#FFC46B 24%,#F7931E 50%,#D2560A 76%,#7A2600 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.stat p{margin:8px 0 0;color:var(--sub);letter-spacing:.06em;text-transform:uppercase;font-size:.95rem}
+.stat .dl{color:var(--text);text-transform:none;letter-spacing:0;font-size:1.05rem}
+.phone{justify-self:center;width:230px;aspect-ratio:390/844;border-radius:34px;border:6px solid #2b2b2b;background:#000 url(/landing/phone.webp) center/cover;box-shadow:0 30px 60px rgba(0,0,0,.6),0 0 40px rgba(255,122,26,.15);transform:perspective(900px) rotateX(18deg) rotateZ(-8deg);margin:6px 0 -40px}
+section{padding:48px 0 8px}
+h2{font-size:clamp(2rem,8vw,2.8rem);line-height:1;margin:6px 0 18px;font-weight:800}
+.feats{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px}
+.card h3{margin:0 0 4px;font-size:1.35rem}.card p{margin:0;color:var(--sub)}
+.card .ic{color:var(--accent);font-weight:800;font-size:1.4rem}
+.toggle{display:flex;justify-content:center;margin:0 0 18px}
+.seg{display:inline-flex;padding:4px;border-radius:999px;border:1px solid var(--line);background:var(--card)}
+.seg button{border:0;background:none;color:var(--sub);font:600 1.1rem inherit;font-family:inherit;padding:8px 18px;border-radius:999px;cursor:pointer}
+.seg button.on{background:#2b2b2b;color:var(--text)}
+.seg em{color:var(--accent);font-style:normal;margin-left:4px}
+.plans{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));align-items:start}
+.plan{padding:22px}
+.plan.pro{border:1.5px solid var(--accent);box-shadow:0 0 0 1px rgba(255,122,26,.25),0 0 32px rgba(255,122,26,.25)}
+.plan-top{display:flex;justify-content:space-between;align-items:center}
+.plan h3{font-size:1.7rem;margin:0}
+.badge{background:var(--accent);color:#1a0d03;border-radius:999px;padding:3px 10px;font-weight:700;font-size:.85rem;letter-spacing:.04em}
+.plan .tag{color:var(--sub);margin:2px 0 14px}
+.was{color:var(--sub);text-decoration:line-through;font-size:1.15rem;min-height:1.4em}
+.price{font-size:3.2rem;font-weight:800;line-height:1}.price small{font-size:1.4rem;font-weight:600}
+.billed{color:var(--accent);margin:4px 0 14px;font-weight:600}
+.ticks{list-style:none;padding:0;margin:0 0 18px;display:grid;gap:8px}
+.ticks li{display:flex;gap:10px;align-items:flex-start}
+.ticks li::before{content:'✓';flex:none;width:20px;height:20px;border-radius:50%;background:var(--accent);color:#1a0d03;display:grid;place-items:center;font-size:.8rem;font-weight:800;margin-top:2px}
+.note{text-align:center;color:var(--sub);margin:18px 0 0}
+footer{margin-top:56px;border-top:1px solid var(--line);padding:24px 0 40px;color:var(--sub);font-size:1rem}
+footer .links{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px}
+@media(min-width:860px){.hero{grid-template-columns:1.2fr 1fr;align-items:center}.phone{grid-row:1/3;grid-column:2;width:270px;margin:20px 0}}
+</style>
 </head>
 <body>
-  <div class="wrap">
-    <header><div class="logo">FPL <b>CORTEX</b></div><a class="btn" href="/app/">Open app</a></header>
-    <section class="hero">
-      <span class="tag">Gameweek co-pilot</span>
-      <h1>Make the next FPL move with confidence.</h1>
-      <p>Your captain pick, the transfers worth making, live rank and an AI analyst grounded in real FPL data. Enter your Team ID. No FPL password, ever.</p>
-      <div class="cta"><a class="btn primary" href="/app/">Start with my Team ID</a><a class="btn" href="#plus">See Cortex Plus</a></div>
-    </section>
-    <section class="grid">
-      <div class="card"><h3>Captain, decided</h3><p>Projected points for every option, with a confidence score.</p></div>
-      <div class="card"><h3>Transfers that add points</h3><p>Moves ranked by projected gain over the next three gameweeks, within your bank.</p></div>
-      <div class="card"><h3>Live rank &amp; rivals</h3><p>Live points, bonus, mini-league swings and the differentials that decide them.</p></div>
-      <div class="card"><h3>Ask Cortex</h3><p>Questions answered with live player, fixture and squad data.</p></div>
-    </section>
-    <section class="grid" id="plus">
-      <div class="card"><span class="tag">Free</span><div class="price">£0</div><p>Home, team, players, live, 3 AI questions per gameweek.</p></div>
-      <div class="card plus"><span class="tag">Cortex Plus</span><div class="price">£4.99<small>/mo</small></div><p>Captain confidence, transfer projections, 5-gameweek planner, unlimited AI, alerts. Or £47.90/year.</p></div>
-    </section>
+<header>
+  <div class="wrap bar">
+    <a class="mark" href="/">CORTEX</a>
+    <a class="pill solid sm" href="/app/">Get Cortex</a>
+    <button class="burger" id="openNav" aria-label="Open menu" aria-expanded="false" aria-controls="drawer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
   </div>
-  <footer><div class="wrap">FPL Cortex is unofficial and not affiliated with, endorsed by, or connected to the Premier League or Fantasy Premier League. Player and fixture data © The Premier League.</div></footer>
+</header>
+
+<div class="drawer" id="drawer" role="dialog" aria-label="Menu">
+  <div class="bar">
+    <a class="mark" href="/">CORTEX</a>
+    <button class="burger" id="closeNav" aria-label="Close menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <details open><summary>Your squad</summary><nav>
+    <a href="/app/#team">Squad rating<small>A score for your XI and what drags it down</small></a>
+    <a href="/app/#team/transfers">Transfers<small>Suggested moves, hits and bank</small></a>
+    <a href="/app/#live">Live rank<small>Points and rank as the gameweek plays out</small></a>
+    <a href="/app/#live">Mini-leagues<small>Rivals, gaps and the differentials deciding them</small></a>
+  </nav></details>
+  <details><summary>Analysis tools</summary><nav>
+    <a href="/app/#players">Points projections<small>Expected points for every player</small></a>
+    <a href="/app/#players/fixtures">Fixtures<small>Difficulty runs over 3, 6 or 8 gameweeks</small></a>
+    <a href="/app/#players/compare">Compare<small>Up to three players side by side</small></a>
+    <a href="/app/#players/movers">Price moves<small>Likely risers and fallers</small></a>
+  </nav></details>
+  <details><summary>Planning</summary><nav>
+    <a href="/app/#team/chips">Chips<small>When to play each one, with blank and double gameweeks</small></a>
+    <a href="/app/#team/transfers">Gameweek planner<small>Line up moves before the deadline</small></a>
+    <a href="/app/#team/tools">Squad tools<small>Wildcard builder, sell or hold, injury risk</small></a>
+  </nav></details>
+  <details><summary>Ask Cortex AI</summary><nav>
+    <a href="/app/#ask">Ask anything about your team<small>Previews, reviews and second opinions</small></a>
+  </nav></details>
+  <a class="pill solid block" href="/app/" style="margin-top:8px">Get Cortex →</a>
+</div>
+
+<main class="wrap">
+  <div class="hero">
+    <div>
+      <div class="eyebrow">Unofficial FPL analyst</div>
+      <h1>Make every gameweek count.</h1>
+      <p class="lede">Squad ratings, transfer ideas, points projections and live rank, worked out from live FPL data. Just your Team ID, never your password.</p>
+      <div class="ctas"><a class="pill solid" href="/app/">Find my team →</a><a class="pill" href="#pricing">See pricing</a></div>
+    </div>
+    <div class="stat" id="stat" hidden>
+      <span class="glow" id="statNum" data-v=""></span>
+      <p>managers playing FPL this season</p>
+      <p class="dl" id="statDl"></p>
+    </div>
+    <div class="phone" role="img" aria-label="Cortex team view on a phone"></div>
+  </div>
+
+  <section id="features">
+    <div class="eyebrow">What you get</div>
+    <h2>Sharper calls, less guesswork.</h2>
+    <div class="feats">
+      <div class="card"><div class="ic">01</div><h3>Know your squad</h3><p>A rating for your XI, captain options and the players holding you back.</p></div>
+      <div class="card"><div class="ic">02</div><h3>Plan ahead</h3><p>Test transfers, hits and chip weeks on your own pitch before you commit.</p></div>
+      <div class="card"><div class="ic">03</div><h3>Follow it live</h3><p>Live points, provisional bonus and where you stand in every mini-league.</p></div>
+      <div class="card"><div class="ic">04</div><h3>Ask Cortex</h3><p>An AI analyst that knows your team. Ask for a preview, a review or a second opinion.</p></div>
+    </div>
+  </section>
+
+  <section id="pricing">
+    <div class="eyebrow">Pricing</div>
+    <h2>Pick your plan.</h2>
+    <div class="toggle"><div class="seg" role="group" aria-label="Billing period">
+      <button type="button" data-period="monthly">Monthly</button>
+      <button type="button" data-period="yearly" class="on">Yearly<em>-50%</em></button>
+    </div></div>
+    <div class="plans">
+      <article class="card plan">
+        <div class="plan-top"><h3>Starter</h3></div>
+        <p class="tag">The essentials for a steady season</p>
+        <div class="was" data-was="£5.99/mo">£5.99/mo</div>
+        <div class="price"><span data-y="£2.99" data-m="£5.99">£2.99</span><small>/mo</small></div>
+        <div class="billed" data-y="Billed yearly (£35.88)" data-m="Billed monthly">Billed yearly (£35.88)</div>
+        <ul class="ticks"><li>AI transfer ideas for your squad</li><li>Squad rating</li><li>Points projections</li><li>Chip and gameweek planner</li><li>Live rank and price tracking</li></ul>
+        <a class="pill solid block" href="/app/#upgrade/starter">Get started →</a>
+      </article>
+      <article class="card plan pro">
+        <div class="plan-top"><h3>Pro</h3><span class="badge">MOST POPULAR</span></div>
+        <p class="tag">For managers chasing a top finish</p>
+        <div class="was" data-was="£9.99/mo">£9.99/mo</div>
+        <div class="price"><span data-y="£4.99" data-m="£9.99">£4.99</span><small>/mo</small></div>
+        <div class="billed" data-y="Billed yearly (£59.88)" data-m="Billed monthly">Billed yearly (£59.88)</div>
+        <ul class="ticks"><li>Everything in Starter</li><li>Full multi-gameweek planner</li><li>Captain picks with confidence</li><li>Unlimited Ask Cortex</li><li>Price-change alerts</li><li>Mini-league war room and shareable cards</li></ul>
+        <a class="pill solid block" href="/app/#upgrade/pro">Get started →</a>
+      </article>
+    </div>
+    <p class="note">Prices are shown in your local currency at checkout.</p>
+  </section>
+</main>
+
+<footer><div class="wrap">
+  <div class="links"><a href="/app/">Open the app</a><a href="/classic/">Classic Cortex</a></div>
+  <p>Not affiliated with the Premier League or Fantasy Premier League.</p>
+  <p>© FPL Cortex</p>
+</div></footer>
+
+<script>
+(function(){
+  var d=document.getElementById('drawer'),o=document.getElementById('openNav');
+  function nav(v){d.classList.toggle('open',v);o.setAttribute('aria-expanded',v);document.body.style.overflow=v?'hidden':''}
+  o.onclick=function(){nav(true)};document.getElementById('closeNav').onclick=function(){nav(false)};
+  d.addEventListener('click',function(e){if(e.target.closest('a'))nav(false)});
+  addEventListener('keydown',function(e){if(e.key==='Escape')nav(false)});
+  document.querySelectorAll('[data-period]').forEach(function(b){b.onclick=function(){
+    var y=b.dataset.period==='yearly';
+    document.querySelectorAll('[data-period]').forEach(function(x){x.classList.toggle('on',x===b)});
+    document.querySelectorAll('[data-y]').forEach(function(el){el.textContent=y?el.dataset.y:el.dataset.m});
+    document.querySelectorAll('[data-was]').forEach(function(el){el.textContent=y?el.dataset.was:''});
+    document.querySelectorAll('.plan a').forEach(function(a){a.href=a.href.split('?')[0]+(y?'':'?period=monthly')});
+  }});
+  // Live stat from the FPL bootstrap (real numbers only; hidden if unavailable)
+  fetch('/api/fpl?path=bootstrap-static/').then(function(r){return r.ok?r.json():null}).then(function(b){
+    if(!b||!b.total_players)return;
+    var n=b.total_players,v=n>=1e6?(n/1e6).toFixed(n>=1e7?1:2)+'M':n.toLocaleString('en-GB');
+    var s=document.getElementById('statNum');s.textContent=v;s.dataset.v=v;
+    var ev=(b.events||[]).find(function(e){return e.is_next});
+    if(ev&&ev.deadline_time){document.getElementById('statDl').textContent='GW'+ev.id+' deadline · '+new Date(ev.deadline_time).toLocaleString('en-GB',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}
+    document.getElementById('stat').hidden=false;
+  }).catch(function(){});
+})();
+</script>
 </body>
 </html>

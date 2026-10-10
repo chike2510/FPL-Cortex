@@ -23,11 +23,6 @@
   ],
   "redirects": [
     {
-      "source": "/",
-      "destination": "/app/",
-      "permanent": false
-    },
-    {
       "source": "/app",
       "destination": "/app/",
       "permanent": false

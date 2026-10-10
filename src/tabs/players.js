@@ -133,6 +133,7 @@ export async function mount(view) {
   model = await getModel();
   entry = settings.entryId ? await getEntry().catch(() => null) : null;
   st ||= initState(); shown = 40;
+  { const sub = location.hash.split(/[/?]/)[1]; if (['players', 'fixtures', 'movers', 'compare'].includes(sub)) st.mode = sub; }
   render(view, html`
     <div class="seg scroll" role="tablist">${[['players', 'Players'], ['fixtures', 'Fixtures'], ['movers', 'Market'], ['compare', 'Compare']].map(([m, l]) => html`<button type="button" class="${st.mode === m ? 'on' : ''}" data-mode="${m}">${l}</button>`)}</div>
     <div id="pBody"></div>`);

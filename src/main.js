@@ -47,5 +47,10 @@ document.addEventListener('cortex:settings', () => document.body.classList.toggl
 document.body.classList.toggle('data-saver', !!settings.dataSaver);
 getModel().then(m => { $('#gwBadge').textContent = `GW ${m.startGW}`; }).catch(() => {});
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); window.__cortexInstall = e; });
-route();
+// Landing-page plan buttons link to #upgrade/<starter|pro>[?period=monthly]: show Profile and open the plan sheet.
+const up = location.hash.match(/^#upgrade(?:\/(starter|pro))?(?:\?period=(monthly|yearly))?/);
+if (up) {
+  history.replaceState(null, '', '#profile');
+  route().then(() => import('./ui/plus.js')).then(m => m.openPlus('', { tier: up[1] || 'pro', period: up[2] || 'yearly' }));
+} else route();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});

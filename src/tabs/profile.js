@@ -28,7 +28,7 @@ export async function mount(view) {
         : me.auth ? html`<p class="muted">Sign in to keep Plus and alerts on every device.</p><form class="inline-form" id="mlForm"><input type="email" id="mlEmail" placeholder="you@example.com" required autocomplete="email"><button class="btn primary" type="submit">Email me a link</button></form><button class="btn block" type="button" id="gBtn">Continue with Google</button>`
         : html`<p class="muted">Accounts are coming soon. Everything free works without one.</p>`}
     </div>
-    ${me.plus ? '' : html`<div class="card"><div class="card-head"><h3>Cortex Plus</h3><span class="muted">£4.99/mo · £47.90/yr</span></div><p class="muted">Captain confidence, transfer projections, 5-GW planner, unlimited Ask and alerts.</p><button class="btn primary" type="button" id="plusBtn">See Plus</button></div>`}
+    ${me.plus ? '' : html`<div class="card"><div class="card-head"><h3>Starter &amp; Pro</h3><span class="muted">from £2.99/mo yearly</span></div><p class="muted">Pro: captain confidence, the full multi-gameweek planner, unlimited Ask and price alerts.</p><button class="btn primary" type="button" id="plusBtn">See plans</button></div>`}
     <div class="card"><span class="eyebrow">Your FPL team</span>
       ${settings.entryId ? html`<p class="small">Current Team ID <b>${settings.entryId}</b></p>` : ''}${teamSearchBox({ id: 'pt', button: 'Save', placeholder: 'Team name, manager or Team ID' })}
       <p class="muted small">Cortex reads public FPL data only. It never asks for your FPL password.</p></div>

@@ -7,7 +7,12 @@ import { json, env, sameOrigin, clientIp } from './_lib/http.js';
 import { getUser, isPlus, rest, supaConfigured } from './_lib/supa.js';
 import { rateLimit, quotaUsed, redisConfigured } from './_lib/ratelimit.js';
 
-const PRICES = { monthly: { gbp: 4.99, label: '£4.99/month' }, yearly: { gbp: 47.90, label: '£47.90/year' } };
+// Display prices only (GBP). monthly/yearly = Pro (the existing Plus checkout); Starter has no checkout product yet.
+const PRICES = {
+  monthly: { gbp: 9.99, label: '£9.99/month' }, yearly: { gbp: 59.88, label: '£59.88/year (£4.99/mo)' },
+  starter: { monthly: { gbp: 5.99, label: '£5.99/month' }, yearly: { gbp: 35.88, label: '£35.88/year (£2.99/mo)' } },
+  pro: { monthly: { gbp: 9.99, label: '£9.99/month' }, yearly: { gbp: 59.88, label: '£59.88/year (£4.99/mo)' } },
+};
 
 async function lemonCheckout(user, plan, promo, extra = {}) {
   const variant = plan === 'league_pack' ? env('LEMONSQUEEZY_VARIANT_LEAGUE_PACK') : plan === 'yearly' ? env('LEMONSQUEEZY_VARIANT_YEARLY') : env('LEMONSQUEEZY_VARIANT_MONTHLY');
