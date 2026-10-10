@@ -32,7 +32,7 @@ export function mountPitch(el, ctx) {
   function bind() {
     el.querySelectorAll('[data-sid]').forEach(b => b.addEventListener('click', () => {
       const id = Number(b.dataset.sid);
-      if (sel == null || sel === id) { sel = sel === id ? null : id; return redraw(); }
+      if (sel == null || sel === id) { sel = sel === id ? null : id; redraw(); if (sel != null) el.querySelector(st.order.indexOf(sel) < 11 ? '.bench' : '.sub-bar')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); return; }
       if (canSwap(st, model, sel, id)) { const a = model.byId.get(sel).web_name, c = model.byId.get(id).web_name; swap(st, model, sel, id); return changed(`${a} ⇄ ${c}`); }
       if (st.order.indexOf(sel) >= 11 !== st.order.indexOf(id) >= 11) toast('That swap breaks formation rules (1 GK, 3+ DEF, 2+ MID, 1+ FWD)');
       sel = id; redraw();
