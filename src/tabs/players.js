@@ -1,7 +1,7 @@
 import './players.css';
 import { html, render, money, $ } from '../lib/dom.js';
 import { getModel, getEntry, settings, saveSettings } from '../lib/store.js';
-import { playerCard } from '../ui/card.js';
+import { playerCard, kit } from '../ui/card.js';
 import { openPlayer } from '../ui/playerSheet.js';
 import { openSheet, closeSheet } from '../ui/sheet.js';
 import { priceOutlook } from '../../shared/xp.js';
@@ -69,13 +69,14 @@ function draw(view) {
   $('#filterBtn', view).textContent = nf ? `Filter · ${nf} →` : 'Filter →';
 }
 
+const shortMove = o => (o.dir === 'up' ? '▲ ' : '▼ ') + (/tonight/.test(o.label) ? 'Tonight' : /possible/.test(o.label) ? 'Possible' : `${Math.round(Math.abs(o.pct))}%`);
 function movers() {
   const withO = model.players.map(p => ({ p, o: priceOutlook(p) }));
   const up = withO.filter(x => x.o.dir === 'up').sort((a, b) => b.o.pct - a.o.pct).slice(0, 10);
   const down = withO.filter(x => x.o.dir === 'down').sort((a, b) => a.o.pct - b.o.pct).slice(0, 10);
-  const col = (title, arr) => html`<div class="card"><h3>${title}</h3><div class="list">${arr.length ? arr.map(x => html`<button class="row-card" type="button" data-pid="${x.p.id}"><span class="row-kit"></span><span class="row-main"><strong>${x.p.web_name}</strong><small>${x.p.teamShort} · ${money(x.p.price)}</small></span><span></span><span class="row-stat"><b class="mv ${x.o.dir}">${x.o.label}</b></span></button>`) : html`<p class="muted">Nothing close tonight.</p>`}</div></div>`;
+  const col = (title, arr) => html`<div class="card"><h3>${title}</h3><div class="list">${arr.length ? arr.map(x => html`<button class="row-card" type="button" data-pid="${x.p.id}"><span class="row-kit">${kit(x.p, 36)}</span><span class="row-main"><strong>${x.p.web_name}</strong><small>${x.p.teamShort} · ${x.p.pos} · ${money(x.p.price)}</small></span><span class="row-stat"><span class="st-pill ${x.o.dir}" title="${x.o.label}">${shortMove(x.o)}</span></span></button>`) : html`<p class="muted">Nothing close tonight.</p>`}</div></div>`;
   const tin = [...model.players].sort((a, b) => b.transfers_in_event - a.transfers_in_event).slice(0, 8), tout = [...model.players].sort((a, b) => b.transfers_out_event - a.transfers_out_event).slice(0, 8);
-  const tcol = (title, arr, k) => html`<div class="card"><h3>${title}</h3><div class="list">${arr.map(p => html`<button class="row-card" type="button" data-pid="${p.id}"><span class="row-kit"></span><span class="row-main"><strong>${p.web_name}</strong><small>${p.teamShort} · ${money(p.price)} · ${p.selected}%</small></span><span></span><span class="row-stat"><b>${(p[k] / 1000).toFixed(0)}k</b><small>this GW</small></span></button>`)}</div></div>`;
+  const tcol = (title, arr, k) => html`<div class="card"><h3>${title}</h3><div class="list">${arr.map(p => html`<button class="row-card" type="button" data-pid="${p.id}"><span class="row-kit">${kit(p, 36)}</span><span class="row-main"><strong>${p.web_name}</strong><small>${p.teamShort} · ${money(p.price)} · ${p.selected}%</small></span><span class="row-stat"><b>${(p[k] / 1000).toFixed(0)}k</b><small>this GW</small></span></button>`)}</div></div>`;
   return html`<p class="muted small">Predicted from FPL's own price-change progress and net transfers. Changes happen overnight UK time.</p>${col('Likely risers', up)}${col('Likely fallers', down)}${tcol('Most transferred in', tin, 'transfers_in_event')}${tcol('Most transferred out', tout, 'transfers_out_event')}`;
 }
 
@@ -124,7 +125,7 @@ function openFilters(view) {
 }
 
 function openSort(view) {
-  const sheet = openSheet({ title: 'Sort by', body: html`<div class="list">${Object.entries(SORTS).map(([k, v]) => html`<button class="row-card sort-opt ${st.sort === k ? 'on' : ''}" type="button" data-sort="${k}"><span></span><span class="row-main"><strong>${v}</strong></span><span></span><span class="row-stat">${st.sort === k ? '✓' : ''}</span></button>`)}</div>` });
+  const sheet = openSheet({ title: 'Sort by', body: html`<div class="list">${Object.entries(SORTS).map(([k, v]) => html`<button class="row-card sort-opt ${st.sort === k ? 'on' : ''}" type="button" data-sort="${k}"><span></span><span class="row-main"><strong>${v}</strong></span><span class="row-stat">${st.sort === k ? '✓' : ''}</span></button>`)}</div>` });
   sheet.querySelectorAll('[data-sort]').forEach(b => b.addEventListener('click', () => { st.sort = b.dataset.sort; closeSheet(); draw(view); }));
 }
 

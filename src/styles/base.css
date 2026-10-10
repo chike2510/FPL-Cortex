@@ -179,3 +179,15 @@ select { min-height: 44px; border-radius: var(--pill); border: 1px solid var(--l
 .table.cmp td, .table.cmp th { white-space: nowrap; }
 .tiles.pulse { grid-template-columns: repeat(3, 1fr); } .tiles.pulse b { font-size: 1.05rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #micBtn.on { border-color: var(--accent); background: rgba(247,147,30,.18); } #dbForm input { min-width: 0; }
+/* Row hygiene: rows never wrap stats into a narrow column at 390px */
+.row-main { min-width: 0; } .row-main strong { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+.row-main small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-kit { display: grid; place-items: center; } .row-kit svg { display: block; }
+.row-stat { white-space: nowrap; }
+.st-pill { display: inline-block; white-space: nowrap; font-size: .78rem; font-weight: 800; letter-spacing: .03em; padding: 4px 9px; border-radius: 999px; border: 1px solid currentColor; }
+.st-pill.up { color: var(--good); background: rgba(123, 216, 143, .12); } .st-pill.down { color: var(--bad); background: rgba(248, 113, 113, .12); }
+/* Team search */
+.ts-wrap { position: relative; } .ts-results { display: grid; gap: 8px; margin-top: 10px; }
+.ts-results .row-kit { font-size: 1.3rem; color: var(--accent); }
+.ts-hint { margin-top: 6px; }
+.tiles.pulse .tile { min-width: 0; align-content: start; } .tiles.pulse small { font-size: .74rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

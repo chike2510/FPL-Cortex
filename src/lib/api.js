@@ -24,5 +24,16 @@ export async function api(path, { method = 'GET', body } = {}) {
   const data = await r.json().catch(() => ({}));
   return { ok: r.ok, status: r.status, data };
 }
-export const teamSearch = q => fetch(`/api/fpl?route=team-search&query=${encodeURIComponent(q)}`).then(r => r.json()).catch(() => ({ results: [] }));
+export const teamSearch = (q, signal) => fetch(`/api/fpl?route=team-search&query=${encodeURIComponent(q)}`, { signal }).then(r => r.json()).catch(e => e.name === 'AbortError' ? null : ({ ok: false, results: [] }));
+// Fallback (c): managers in league standings this session already loaded (no extra requests).
+export function leagueManagers(q) {
+  const f = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const n = f(q).trim(); if (n.length < 3) return [];
+  const out = new Map();
+  for (const [path, { data }] of mem) {
+    if (!/^leagues-classic\//.test(path)) continue;
+    for (const r of data?.standings?.results || []) if (f(r.entry_name).includes(n) || f(r.player_name).includes(n)) out.set(r.entry, { id: r.entry, teamName: r.entry_name, realName: r.player_name, overallRank: null, league: data.league?.name || '' });
+  }
+  return [...out.values()].slice(0, 8);
+}
 export const news = () => fetch('/api/news').then(r => r.json()).catch(() => ({ items: [] }));

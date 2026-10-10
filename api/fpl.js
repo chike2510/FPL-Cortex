@@ -48,6 +48,57 @@ function errCode(s) {
 
 function normalise(p) { return String(p || '').trim().replace(/^\/+/, '').replace(/^api\//, ''); }
 
+// ---- Team-name search ----------------------------------------------------
+// The official FPL API has no name search. Source (a): fplbot.app's public entry index
+// (GET https://www.fplbot.app/api/search/entries?query=&page=, the endpoint fplbot.app's own
+// search page calls). Results are re-ranked here, then enriched with live FPL data
+// (current team name + overall rank). (b): a pasted FPL URL or a numeric Team ID resolves directly.
+const FPLBOT = 'https://www.fplbot.app/api/search/entries';
+const fold = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+function idFrom(query) {
+  const m = query.match(/entry\/(\d{1,9})/i) || query.match(/^\s*#?(\d{1,9})\s*$/);
+  return m ? m[1] : null;
+}
+function score(h, q) {
+  const t = fold(h.teamName), n = fold(h.realName), words = q.split(' ');
+  let s = 0;
+  if (t === q) s += 100; else if (t.startsWith(q)) s += 60; else if (t.includes(q)) s += 40;
+  if (n === q) s += 90; else if (n.startsWith(q)) s += 50; else if (n.includes(q)) s += 30;
+  s += words.filter(w => t.includes(w) || n.includes(w)).length * 8;
+  return s;
+}
+async function enrich(id) {
+  const e = await fetchFpl(`entry/${id}/`).catch(() => ({ ok: false }));
+  if (!e.ok || !e.data) return null;
+  const d = e.data;
+  return { id: d.id, teamName: d.name, realName: `${d.player_first_name} ${d.player_last_name}`.trim(), country: d.player_region_name || '', overallRank: d.summary_overall_rank ?? null, points: d.summary_overall_points ?? null };
+}
+async function teamSearch(q) {
+  const query = String(q.get('query') || '').trim().slice(0, 120);
+  const id = idFrom(query);
+  if (id) {
+    const r = await enrich(id);
+    return json({ ok: true, source: 'fpl-id', results: r ? [r] : [] }, 200, r ? 120 : 30);
+  }
+  const fq = fold(query);
+  if (fq.length < 3) return json({ ok: false, error: 'FPL_REQUEST_FAILED', message: 'Search needs at least 3 characters.' }, 400);
+  let hits = [];
+  try {
+    const pages = await Promise.all([0, 1].map(p => fetch(`${FPLBOT}?${new URLSearchParams({ query, page: String(p) })}`, { headers: { Accept: 'application/json', 'User-Agent': 'FPL-Cortex/2.0 (+https://fpl-cortex.vercel.app)' }, signal: AbortSignal.timeout(6000) })
+      .then(r => r.ok ? r.json() : null).catch(() => null)));
+    if (pages.every(p => !p)) throw new Error('down');
+    const seen = new Set();
+    for (const p of pages) for (const h of (p?.hits?.exposedHits || [])) if (h?.id && !seen.has(h.id)) { seen.add(h.id); hits.push(h); }
+  } catch {
+    return json({ ok: false, error: 'FPL_SEARCH_UNAVAILABLE', message: 'Team-name search is unavailable right now. Paste your FPL link or Team ID instead.', results: [] }, 200, 30);
+  }
+  const ranked = hits.map(h => ({ h, s: score(h, fq) })).sort((a, b) => b.s - a.s).slice(0, 8);
+  const live = await Promise.all(ranked.map(({ h }) => enrich(h.id)));
+  const results = ranked.map(({ h }, i) => live[i] || { id: Number(h.id), teamName: String(h.teamName || ''), realName: String(h.realName || ''), country: String(h.country || ''), overallRank: null, points: null })
+    .map(r => ({ ...r, s: score(r, fq) })).sort((a, b) => b.s - a.s || (a.overallRank || 9e9) - (b.overallRank || 9e9)).map(({ s, ...r }) => r);
+  return json({ ok: true, source: 'fplbot', results }, 200, 600);
+}
+
 export default async function handler(req) {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204 });
   if (req.method !== 'GET') return json({ ok: false, error: 'METHOD_NOT_ALLOWED', message: 'Read-only proxy.' }, 405);
@@ -56,20 +107,7 @@ export default async function handler(req) {
   const route = q.get('route') || (url.pathname.split('/api/fpl/')[1] || '');
 
   try {
-    if (route === 'team-search') {
-      const query = String(q.get('query') || '').trim().slice(0, 80);
-      if (query.length < 3 && !/^\d+$/.test(query)) return json({ ok: false, error: 'FPL_REQUEST_FAILED', message: 'Search needs at least 3 characters.' }, 400);
-      if (/^\d{1,9}$/.test(query)) {
-        const e = await fetchFpl(`entry/${query}/`);
-        return json({ ok: true, results: e.ok ? [{ id: e.data.id, realName: `${e.data.player_first_name} ${e.data.player_last_name}`, teamName: e.data.name, country: e.data.player_region_name || '' }] : [] }, 200, 120);
-      }
-      const r = await fetch(`https://api.fplbot.app/search/any?query=${encodeURIComponent(query)}`, { headers: { Accept: 'application/json' } });
-      if (!r.ok) return json({ ok: false, error: 'FPL_SEARCH_UNAVAILABLE', message: 'Team search is unavailable.' }, 502);
-      const payload = await r.json();
-      const hits = Array.isArray(payload?.hits?.exposedHits) ? payload.hits.exposedHits : [];
-      const results = hits.filter(h => h?.type === 'entry' && h?.source?.id).slice(0, 20).map(h => ({ id: Number(h.source.id), realName: String(h.source.realName || ''), teamName: String(h.source.teamName || ''), country: String(h.source.country || '') }));
-      return json({ ok: true, results }, 200, 300);
-    }
+    if (route === 'team-search') return teamSearch(q);
     if (DRAFT_ROUTES[route]) {
       const p = DRAFT_ROUTES[route](q);
       if (!p) return json({ ok: false, error: 'FPL_REQUEST_FAILED', message: 'Missing id.' }, 400);
