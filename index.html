@@ -7,7 +7,9 @@
 <meta name="description" content="Rate your squad, plan transfers and chips, track live rank and ask an AI analyst, all from live Fantasy Premier League data. No FPL password needed." />
 <meta name="theme-color" content="#111111" />
 <link rel="manifest" href="/manifest.json" />
-<link rel="icon" href="/icons/icon-192.png" />
+<link rel="icon" href="/icons/favicon.svg" type="image/svg+xml" />
+<link rel="icon" href="/icons/favicon-32.png" sizes="32x32" type="image/png" />
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
 <meta property="og:title" content="FPL Cortex" />
 <meta property="og:description" content="Your unofficial FPL analyst, built on live data." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -26,7 +28,8 @@ a{color:inherit}
 .pill.block{width:100%;justify-content:center}
 header{position:sticky;top:0;z-index:20;background:rgba(17,17,17,.88);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
 .bar{display:flex;align-items:center;gap:12px;height:60px}
-.mark{font-weight:800;font-size:1.75rem;letter-spacing:.04em;color:var(--accent);text-decoration:none;margin-right:auto}
+.brand-mark{display:block;width:30px;height:30px}
+.mark{display:inline-flex;align-items:center;gap:6px;font-weight:800;font-size:1.75rem;letter-spacing:.04em;color:var(--accent);text-decoration:none;margin-right:auto}
 .burger{width:40px;height:40px;border:0;background:none;color:var(--text);cursor:pointer;display:grid;place-items:center}
 .burger svg{width:24px;height:24px}
 .drawer{position:fixed;inset:0;z-index:40;background:#141414;transform:translateX(100%);transition:transform .25s ease;overflow-y:auto;padding:0 20px 32px;visibility:hidden}
@@ -85,7 +88,7 @@ footer .links{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px}
 <body>
 <header>
   <div class="wrap bar">
-    <a class="mark" href="/">CORTEX</a>
+    <a class="mark" href="/"><img class="brand-mark" src="/icons/cortex-mark.svg" width="30" height="30" alt="" />CORTEX</a>
     <a class="pill solid sm" href="/app/">Get Cortex</a>
     <button class="burger" id="openNav" aria-label="Open menu" aria-expanded="false" aria-controls="drawer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
   </div>
@@ -93,7 +96,7 @@ footer .links{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px}
 
 <div class="drawer" id="drawer" role="dialog" aria-label="Menu">
   <div class="bar">
-    <a class="mark" href="/">CORTEX</a>
+    <a class="mark" href="/"><img class="brand-mark" src="/icons/cortex-mark.svg" width="30" height="30" alt="" />CORTEX</a>
     <button class="burger" id="closeNav" aria-label="Close menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
   </div>
   <details open><summary>Your squad</summary><nav>

@@ -56,7 +56,7 @@ function season(entry) {
   const ch = [['Century Club', 'Score 100+ in a gameweek', cur.some(g => g.points >= 100)], ['Green Arrow', 'Gain 100k+ rank in a week', cur.some((g, i) => i && cur[i - 1].overall_rank - g.overall_rank >= 100000)],
     ['Top 100k', 'Reach a top-100k overall rank', ranks.some(r => r <= 100000)], ['Chip Master', 'Use four chips', chips.length >= 4], ['Bench Respect', 'Leave under 5 on the bench all season', cur.length > 3 && cur.every(g => g.points_on_bench < 5)], ['Budget Boss', 'Team value £105m+', (entry.value || 0) >= 105]];
   return html`<div class="card"><div class="card-head"><h3>Season</h3><div class="chips"><button class="chip ${chartMode === 'points' ? 'on' : ''}" type="button" data-chart="points">Points</button><button class="chip ${chartMode === 'rank' ? 'on' : ''}" type="button" data-chart="rank">Rank</button></div></div><div class="chart" id="seasonChart">${chart(entry.history, chartMode)}</div>
-    <span class="eyebrow">Challenges · ${ch.filter(c => c[2]).length}/${ch.length}</span><div class="chips wrap">${ch.map(([n, d, done]) => html`<span class="chip ${done ? 'on' : ''}" title="${d}">${done ? '✓ ' : ''}${n}</span>`)}</div></div>`;
+    <span class="eyebrow">Challenges · ${ch.filter(c => c[2]).length}/${ch.length}</span><div class="chips wrap challenges">${ch.map(([n, d, done]) => html`<span class="chip ${done ? 'on' : ''}" title="${d}">${done ? '✓ ' : ''}${n}</span>`)}</div></div>`;
 }
 
 async function rivalPicks(entryId, gw) { try { return await fpl(`entry/${entryId}/event/${gw}/picks/`, 60); } catch { return null; } }
