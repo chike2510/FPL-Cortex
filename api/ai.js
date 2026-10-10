@@ -12,7 +12,18 @@ import { getModel, getSquad, findPlayer, fetchFpl } from './_lib/fpl.js';
 import { captainPicks, suggestTransfers } from '../shared/xp.js';
 
 const FREE_PER_GW = 3;
-const MODEL = 'llama-3.3-70b-versatile';
+const PREFERRED = ['llama-3.3-70b-versatile', 'openai/gpt-oss-120b', 'moonshotai/kimi-k2-instruct', 'meta-llama/llama-4-maverick-17b-128e-instruct', 'qwen/qwen3-32b', 'openai/gpt-oss-20b'];
+let modelId = null;
+async function pickModel(force = false) {
+  if (modelId && !force) return modelId;
+  if (env('GROQ_MODEL') && !force) return (modelId = env('GROQ_MODEL'));
+  try {
+    const r = await fetch('https://api.groq.com/openai/v1/models', { headers: { Authorization: `Bearer ${env('GROQ_API_KEY')}` } });
+    const ids = ((await r.json()).data || []).map(m => m.id);
+    modelId = PREFERRED.find(m => ids.includes(m)) || ids.find(i => !/whisper|guard|tts|playai/i.test(i)) || PREFERRED[0];
+  } catch { modelId = PREFERRED[0]; }
+  return modelId;
+}
 
 const TOOLS = [
   { type: 'function', function: { name: 'get_player', description: 'Live FPL stats, price, form, ownership, injury news, projected points (xP) and next 5 fixtures for one player.', parameters: { type: 'object', properties: { name: { type: 'string', description: 'Player web name, e.g. "Salah"' } }, required: ['name'] } } },
@@ -45,12 +56,14 @@ async function runTool(name, args, ctx) {
   return { error: 'Unknown tool' };
 }
 
-async function groq(messages, maxTokens, tools = true) {
+async function groq(messages, maxTokens, tools = true, retry = true) {
+  const model = await pickModel();
   const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env('GROQ_API_KEY')}` },
-    body: JSON.stringify({ model: MODEL, messages, max_tokens: maxTokens, temperature: 0.4, ...(tools ? { tools: TOOLS, tool_choice: 'auto' } : {}) }),
+    body: JSON.stringify({ model, messages, max_tokens: maxTokens, temperature: 0.4, ...(tools ? { tools: TOOLS, tool_choice: 'auto' } : {}) }),
     signal: AbortSignal.timeout(25000),
   });
+  if ((r.status === 404 || r.status === 400) && retry) { await pickModel(true); return groq(messages, maxTokens, tools, false); }
   if (!r.ok) throw new Error(`GROQ_${r.status}`);
   return r.json();
 }

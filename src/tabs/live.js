@@ -30,6 +30,17 @@ function score(picksData, live, bonus) {
   return { total: total - (picksData?.entry_history?.event_transfers_cost || 0), rows, chip };
 }
 
+function rankTrend(history) {
+  const cur = (history?.current || []).filter(h => h.overall_rank).slice(-6);
+  if (cur.length < 2) return '';
+  const max = Math.max(...cur.map(h => h.overall_rank)), min = Math.min(...cur.map(h => h.overall_rank));
+  const y = r => max === min ? 50 : 8 + (r - min) / (max - min) * 84; // lower rank = higher on chart
+  const pts = cur.map((h, i) => `${(i / (cur.length - 1) * 100).toFixed(1)},${y(h.overall_rank).toFixed(1)}`).join(' ');
+  const last = cur[cur.length - 1], prev = cur[cur.length - 2];
+  const up = last.overall_rank <= prev.overall_rank;
+  return html`<div class="rank-trend"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="3" vector-effect="non-scaling-stroke"/></svg><span class="muted small">Rank GW${cur[0].event}–${last.event}: <b class="mv ${up ? 'up' : 'down'}">${up ? '▲' : '▼'} ${fmtNum(Math.abs(prev.overall_rank - last.overall_rank))}</b> last week</span></div>`;
+}
+
 async function rivalPicks(entryId, gw) { try { return await fpl(`entry/${entryId}/event/${gw}/picks/`, 60); } catch { return null; } }
 
 export async function mount(view) {
@@ -49,6 +60,7 @@ export async function mount(view) {
   render(view, html`
     <div class="card hero"><div class="card-head"><span class="eyebrow">GW${gw} live</span><span class="muted">${ev?.finished ? 'final' : 'updating'}</span></div>
       <div class="stat-row"><div class="stat"><b class="accent big">${mine.total}</b><small>live points${mine.chip ? ' · ' + mine.chip : ''}</small></div><div class="stat"><b>${ev?.average_entry_score ?? '—'}</b><small>GW average</small></div><div class="stat"><b>${fmtNum(entry.entry.summary_overall_rank)}</b><small>overall rank (FPL)</small></div></div>
+      ${rankTrend(entry.history)}
       <p class="muted small">Includes provisional bonus from BPS. FPL updates official rank a few times a day.</p></div>
     <div class="card"><h3>Your players</h3><div class="list">${mine.rows.filter(r => r.mult > 0 || r.pos <= 11).map(r => { const p = P(r.id); const st = live.get(r.id)?.stats || {}; const b = st.bonus || bonus.get(r.id) || 0; return p ? html`<div class="live-row"><span><strong>${p.web_name}</strong>${r.mult > 1 ? html` <span class="tag">x${r.mult}</span>` : ''}<small class="muted"> ${p.teamShort} · ${st.minutes || 0}'</small></span>${b ? html`<span class="bonus">+${b} bonus</span>` : html`<span></span>`}<b>${r.pts * Math.max(1, r.mult)}</b></div>` : ''; })}</div></div>
     <div class="card"><div class="card-head"><h3>Rivals</h3><button class="btn small" type="button" id="addRival">Add rival</button></div>

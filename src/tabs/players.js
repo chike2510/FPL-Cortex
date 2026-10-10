@@ -88,17 +88,17 @@ function openFilters(view) {
   const counts = Array(bins).fill(0); prices.forEach(v => { counts[Math.min(bins - 1, Math.max(0, Math.floor((v - lo) / step)))]++; });
   const maxC = Math.max(...counts);
   const budget = entry ? Math.max(...entry.ids.map(id => model.byId.get(id)?.price || 0)) + entry.bank : null;
-  const count = (patch, skip) => model.players.filter(p => matches(p, { ...draft, ...patch }, skip)).length;
+  const count = patch => model.players.filter(p => matches(p, { ...draft, ...patch })).length;
 
   const body = () => html`
     <section><div class="card-head"><span class="eyebrow">Price</span><span class="muted">${money(draft.min)} – ${money(draft.max)}</span></div>
       <div class="histo">${counts.map((c, i) => { const from = lo + i * step; const inR = from + step > draft.min && from < draft.max; return html`<i class="${inR ? 'in' : ''}" style="height:${Math.max(4, c / maxC * 100)}%"></i>`; })}${budget ? html`<span class="budget" style="left:${(Math.min(hi, budget) - lo) / (hi - lo) * 100}%" title="Your max spend">bank ${money(budget)}</span>` : ''}</div>
       <div class="dual"><input type="range" min="${lo}" max="${hi}" step="0.5" value="${draft.min}" id="rMin" aria-label="Minimum price"><input type="range" min="${lo}" max="${hi}" step="0.5" value="${draft.max}" id="rMax" aria-label="Maximum price"></div>
       <div class="inline-form"><label class="field"><span>Min £m</span><input type="number" step="0.1" min="${lo}" max="${hi}" value="${draft.min}" id="nMin"></label><label class="field"><span>Max £m</span><input type="number" step="0.1" min="${lo}" max="${hi}" value="${draft.max}" id="nMax"></label></div>
-      <div class="chips wrap">${PRICE_CHIPS.map(v => html`<button class="chip ${draft.min === v && draft.max === hi ? 'on' : ''}" type="button" data-pmin="${v}">${v.toFixed(1)}+<span class="count">${count({ min: v, max: hi }, 'price')}</span></button>`)}</div></section>
-    <section><span class="eyebrow">Position</span><div class="chips wrap">${POS.map(p => html`<button class="chip ${draft.pos.has(p) ? 'on' : ''}" type="button" data-pos="${p}">${p}<span class="count">${count({ pos: new Set([p]) }, 'pos')}</span></button>`)}</div></section>
-    <section><span class="eyebrow">Ownership</span><div class="chips wrap">${OWN.map(o => html`<button class="chip ${draft.own === o.id ? 'on' : ''}" type="button" data-own="${o.id}">${o.label}<span class="count">${count({ own: o.id }, 'own')}</span></button>`)}</div></section>
-    <section><span class="eyebrow">Availability & fixtures</span><div class="chips wrap"><button class="chip ${draft.avail ? 'on' : ''}" type="button" data-tog="avail">Fit to play<span class="count">${count({ avail: true }, 'avail')}</span></button><button class="chip ${draft.easy ? 'on' : ''}" type="button" data-tog="easy">Easy next 3<span class="count">${count({ easy: true }, 'easy')}</span></button></div></section>`;
+      <div class="chips wrap">${PRICE_CHIPS.map(v => html`<button class="chip ${draft.min === v && draft.max === hi ? 'on' : ''}" type="button" data-pmin="${v}">${v.toFixed(1)}+<span class="count">${count({ min: v, max: hi })}</span></button>`)}</div></section>
+    <section><span class="eyebrow">Position</span><div class="chips wrap">${POS.map(p => html`<button class="chip ${draft.pos.has(p) ? 'on' : ''}" type="button" data-pos="${p}">${p}<span class="count">${count({ pos: new Set([p]) })}</span></button>`)}</div></section>
+    <section><span class="eyebrow">Ownership</span><div class="chips wrap">${OWN.map(o => html`<button class="chip ${draft.own === o.id ? 'on' : ''}" type="button" data-own="${o.id}">${o.label}<span class="count">${count({ own: o.id })}</span></button>`)}</div></section>
+    <section><span class="eyebrow">Availability & fixtures</span><div class="chips wrap"><button class="chip ${draft.avail ? 'on' : ''}" type="button" data-tog="avail">Fit to play<span class="count">${count({ avail: true })}</span></button><button class="chip ${draft.easy ? 'on' : ''}" type="button" data-tog="easy">Easy next 3<span class="count">${count({ easy: true })}</span></button></div></section>`;
 
   const sheet = openSheet({ title: 'Filter players', body: body(), footer: html`<div class="foot-row"><button class="btn" type="button" id="fReset">Reset</button><button class="btn primary" type="button" id="fApply">Show players</button></div>` });
   const refresh = () => {

@@ -15,16 +15,16 @@ const escHtml = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&
 function teamCard(q) {
   const xi = clean(q.get('xi'), 600).split(',').slice(0, 11).map(s => { const [name, pos, team, pts] = s.split(':'); return { name: clean(name, 14), pos: clean(pos, 3), team: clean(team, 3), pts: clean(pts, 3) }; }).filter(p => p.name);
   const rows = ['GKP', 'DEF', 'MID', 'FWD'].map(pos => xi.filter(p => p.pos === pos));
-  return h('div', { width: '100%', height: '100%', flexDirection: 'column', background: '#0B1220', color: '#F8FAFC', padding: 48, fontFamily: 'sans-serif' },
+  return h('div', { width: '100%', height: '100%', flexDirection: 'column', background: '#0B1220', color: '#F8FAFC', padding: '36px 48px', fontFamily: 'sans-serif' },
     h('div', { justifyContent: 'space-between', alignItems: 'flex-end' },
-      h('div', { flexDirection: 'column' }, h('div', { fontSize: 26, color: '#94A3B8' }, `Gameweek ${clean(q.get('gw'), 3)} · ${clean(q.get('m'))}`), h('div', { fontSize: 52, fontWeight: 700 }, clean(q.get('t')) || 'My FPL team')),
-      h('div', { flexDirection: 'column', alignItems: 'flex-end' }, h('div', { fontSize: 96, fontWeight: 800, color: '#A3E635', lineHeight: 1 }, clean(q.get('pts'), 4) || '—'), h('div', { fontSize: 24, color: '#94A3B8' }, q.get('rank') ? `Rank ${Number(q.get('rank')).toLocaleString('en-GB')}` : 'points'))),
-    h('div', { flex: 1, flexDirection: 'column', justifyContent: 'space-around', marginTop: 24, background: '#0F2A1D', borderRadius: 16, padding: 16 },
+      h('div', { flexDirection: 'column' }, h('div', { fontSize: 26, color: '#94A3B8' }, `Gameweek ${clean(q.get('gw'), 3)} · ${clean(q.get('m'))}`), h('div', { fontSize: 44, fontWeight: 700 }, clean(q.get('t')) || 'My FPL team')),
+      h('div', { flexDirection: 'column', alignItems: 'flex-end' }, h('div', { fontSize: 80, fontWeight: 800, color: '#A3E635', lineHeight: 1 }, clean(q.get('pts'), 4) || '—'), h('div', { fontSize: 24, color: '#94A3B8' }, q.get('rank') ? `Rank ${Number(q.get('rank')).toLocaleString('en-GB')}` : 'points'))),
+    h('div', { flex: 1, flexDirection: 'column', justifyContent: 'space-around', marginTop: 16, background: '#0F2A1D', borderRadius: 16, padding: '8px 16px' },
       ...rows.map(r => h('div', { justifyContent: 'center', gap: 18 }, ...r.map(p => h('div', { flexDirection: 'column', alignItems: 'center', width: 150 },
-        h('div', { width: 54, height: 54, borderRadius: 16, background: kitColour(p.team), border: '3px solid rgba(255,255,255,.7)' }),
-        h('div', { fontSize: 22, marginTop: 6, background: '#0B1220', padding: '2px 10px', borderRadius: 16 }, p.name),
-        h('div', { fontSize: 20, color: '#A3E635' }, p.pts ? `${p.pts} pts` : p.team)))))),
-    h('div', { justifyContent: 'space-between', marginTop: 16, fontSize: 20, color: '#64748B' }, h('div', {}, 'FPL Cortex · fpl-cortex.vercel.app'), h('div', {}, 'Unofficial · not affiliated with the Premier League or FPL')));
+        h('div', { width: 34, height: 34, borderRadius: 16, background: kitColour(p.team), border: '3px solid rgba(255,255,255,.7)' }),
+        h('div', { fontSize: 19, marginTop: 2, background: '#0B1220', padding: '0 10px', borderRadius: 16 }, p.name),
+        h('div', { fontSize: 17, color: '#A3E635' }, p.pts ? `${p.pts} pts` : p.team)))))),
+    h('div', { justifyContent: 'space-between', marginTop: 12, fontSize: 18, color: '#64748B' }, h('div', {}, 'FPL Cortex · fpl-cortex.vercel.app'), h('div', {}, 'Unofficial · not affiliated with the Premier League or FPL')));
 }
 
 function awardCard(q) {

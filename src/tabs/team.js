@@ -24,7 +24,7 @@ export async function mount(view) {
   const rows = [1, 2, 3, 4].map(t => xi.filter(pk => P(pk).element_type === t));
   const capPk = picks.find(pk => pk.is_captain);
   const projected = xi.reduce((s, pk) => s + P(pk).xp, 0) + (capPk && P(capPk) ? P(capPk).xp : 0);
-  const rating = Math.round(Math.max(0, Math.min(100, projected / 80 * 100)));
+  const rating = Math.round(Math.max(0, Math.min(100, projected / 100 * 100)));
   const freeMove = suggestTransfers(model, entry.ids, entry.bank, 3, 1)[0];
   const used = new Set((entry.history?.chips || []).map(c => c.name));
   const nextGW = model.startGW;
