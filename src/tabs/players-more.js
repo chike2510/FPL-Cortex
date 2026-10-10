@@ -1,5 +1,5 @@
 // Players > Fixtures (GW fixture list, FDR calendar, team form) and Players > Compare. Lazy-loaded.
-import { html, render, money, $ } from '../lib/dom.js';
+import { html, render, money, toast, $ } from '../lib/dom.js';
 import { fpl } from '../lib/api.js';
 import { openPlayer } from '../ui/playerSheet.js';
 
@@ -39,12 +39,12 @@ export function compare(body, model) {
     ['Form', p => p.form.toFixed(1), p => p.form], ['Total pts', p => p.total_points, p => p.total_points], ['xG / 90', p => p.xg90.toFixed(2), p => p.xg90], ['xA / 90', p => p.xa90.toFixed(2), p => p.xa90], ['ICT', p => p.ict.toFixed(1), p => p.ict], ['Minutes', p => p.minutes, p => p.minutes], ['Owned', p => `${p.selected}%`], ['Next 3', p => p.upcoming.map(f => f.home ? f.opponent : f.opponent.toLowerCase()).join(' '), p => -p.avgFDR]];
   const draw = () => {
     const ps = picks.map(id => model.byId.get(id)).filter(Boolean);
-    render($('#cmpOut', body), ps.length < 2 ? html`<p class="muted">Add two or three players to compare.</p>` : html`<div class="scroll-x"><table class="table cmp"><thead><tr><th></th>${ps.map((p, i) => html`<th><button class="linkish" type="button" data-pid="${p.id}">${p.web_name}</button> <button class="linkish faint" type="button" data-rm="${i}" aria-label="Remove ${p.web_name}">✕</button></th>`)}</tr></thead><tbody>${rows.map(([l, f, n]) => { const best = n ? Math.max(...ps.map(n)) : null; return html`<tr><td class="muted">${l}</td>${ps.map(p => html`<td class="${n && n(p) === best ? 'accent' : ''}">${f(p)}</td>`)}</tr>`; })}</tbody></table></div><a class="btn pill" href="#ask" id="cmpAsk">Ask Cortex which to pick →</a>`);
+    render($('#cmpOut', body), ps.length < 2 ? html`${ps.map(p => html`<span class="chip on">${p.web_name}</span> `)}<p class="muted">Add ${ps.length ? 'one or two more' : 'two or three players'} to compare.</p>` : html`<div class="scroll-x"><table class="table cmp"><thead><tr><th></th>${ps.map((p, i) => html`<th><button class="linkish" type="button" data-pid="${p.id}">${p.web_name}</button> <button class="linkish faint" type="button" data-rm="${i}" aria-label="Remove ${p.web_name}">✕</button></th>`)}</tr></thead><tbody>${rows.map(([l, f, n]) => { const best = n ? Math.max(...ps.map(n)) : null; return html`<tr><td class="muted">${l}</td>${ps.map(p => html`<td class="${n && n(p) === best ? 'accent' : ''}">${f(p)}</td>`)}</tr>`; })}</tbody></table></div><a class="btn pill" href="#ask" id="cmpAsk">Ask Cortex which to pick →</a>`);
     body.querySelectorAll('#cmpOut [data-pid]').forEach(b => b.addEventListener('click', () => openPlayer(model, b.dataset.pid)));
     body.querySelectorAll('[data-rm]').forEach(b => b.addEventListener('click', () => { picks.splice(Number(b.dataset.rm), 1); draw(); }));
     $('#cmpAsk', body)?.addEventListener('click', () => sessionStorage.setItem('cortex_ask_prefill', `Compare ${ps.map(p => p.web_name).join(' vs ')} over the next 5 gameweeks. Who should I pick?`));
   };
   render(body, html`<div class="card"><span class="eyebrow">Compare players</span><form class="inline-form" id="cmpForm"><input id="cmpIn" list="cmpList" placeholder="Add a player (up to 3)" aria-label="Player to compare"><button class="btn primary" type="submit">Add</button></form><datalist id="cmpList">${[...model.players].sort((a, b) => b.total_points - a.total_points).slice(0, 300).map(p => html`<option value="${p.web_name}">`)}</datalist><div id="cmpOut"></div></div>`);
-  $('#cmpForm', body).addEventListener('submit', e => { e.preventDefault(); const p = find($('#cmpIn', body).value); if (!p) return; if (!picks.includes(p.id)) { picks.push(p.id); if (picks.length > 3) picks.shift(); } $('#cmpIn', body).value = ''; draw(); });
+  $('#cmpForm', body).addEventListener('submit', e => { e.preventDefault(); const p = find($('#cmpIn', body).value); if (!p) return toast('Player not found'); if (!picks.includes(p.id)) { picks.push(p.id); if (picks.length > 3) picks.shift(); } $('#cmpIn', body).value = ''; draw(); });
   draw();
 }
