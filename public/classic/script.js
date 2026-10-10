@@ -48,7 +48,7 @@ async function fplFetch(path, requireAuth = false) {
 
 async function fplPost(action, body = {}) {
   try {
-    const res = await fetch('/api/fpl', {
+    const res = await fetch('/api/fpl-companion', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action, ...body }),
@@ -272,7 +272,7 @@ function saveTeam() {
 }
 
 /* ══ PWA / SW (#13) ═════════════════════════════════════════════ */
-function registerSW() { if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {}); }
+function registerSW() { if ('serviceWorker' in navigator) navigator.serviceWorker.getRegistration('/classic/').catch(() => {}); }
 function setupPWA() {
   const installButton=el('installBtn'); if(installButton) installButton.style.display='grid';
   window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); S.deferredInstall = e; const b = el('installBtn'); if (b) { b.style.display = 'flex'; b.setAttribute('aria-label','Install Cortex'); b.title='Install Cortex'; } });
@@ -1386,25 +1386,15 @@ async function loadNewsFeed() {
     { url:'https://www.90min.com/feeds/latest.rss', source:'90min', color:'#00c853' },
   ];
 
-  const rssProxy = url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-
-  const results = await Promise.allSettled(RSS_FEEDS.map(async feed => {
-    const r = await fetch(rssProxy(feed.url));
-    if (!r.ok) throw new Error(`${feed.source} ${r.status}`);
-    const text = await r.text();
-    const doc = new DOMParser().parseFromString(text, 'text/xml');
-    return Array.from(doc.querySelectorAll('item')).slice(0, 5).map(item => ({
-      title:   (item.querySelector('title')?.textContent || '').trim(),
-      link:    item.querySelector('link')?.textContent || '#',
-      desc:    (item.querySelector('description')?.textContent || '').replace(/<[^>]+>/g,'').slice(0, 120),
-      date:    item.querySelector('pubDate')?.textContent || '',
-      source:  feed.source,
-      color:   feed.color,
-      isFPL:   /(fpl|fantasy|gameweek|gw\d|transfer|injury|haaland|salah|saka|palmer|mbappe|de bruyne)/i.test(
-                  item.querySelector('title')?.textContent || ''),
-    }));
-  }));
-
+  // v2: server-side RSS via /api/news (no third-party proxy); text is plain and escaped below.
+  const escTxt = v => String(v || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const colorBy = Object.fromEntries(RSS_FEEDS.map(f => [f.source, f.color]));
+  const newsRes = await fetch('/api/news').then(r => r.json()).catch(() => ({ items: [] }));
+  const results = [{ status: 'fulfilled', value: (newsRes.items || []).map(it => ({
+    title: escTxt(it.title), link: /^https:\/\//.test(it.link) ? escTxt(it.link) : '#', desc: escTxt(it.summary).slice(0, 140), date: it.date,
+    source: escTxt(it.source), color: colorBy[it.source] || colorBy[it.source + ' FC'] || '#64748b',
+    isFPL: /(fpl|fantasy|gameweek|gw\d|transfer|injury|haaland|salah|saka|palmer)/i.test(it.title || ''),
+  })) }];
   let articles = results.filter(r => r.status === 'fulfilled').flatMap(r => r.value);
 
   // Sort: FPL-tagged first, then by date
@@ -1413,7 +1403,7 @@ async function loadNewsFeed() {
     return new Date(b.date) - new Date(a.date);
   });
 
-  const sourceStats = results.map((r, i) => ({ feed:RSS_FEEDS[i], ok:r.status==='fulfilled', count:r.status==='fulfilled'?r.value.length:0 }));
+  const sourceStats = RSS_FEEDS.map(feed => ({ feed, ok: (newsRes.sources || []).some(x => x.ok && feed.source.startsWith(x.source)), count: results[0].value.filter(a => feed.source.startsWith(a.source)).length }));
 
   if (!articles.length) {
     area.innerHTML = '<div style="color:var(--text-sub);text-align:center;padding:2rem;font-size:.82rem">No news available. Check your connection.</div>';

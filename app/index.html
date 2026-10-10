@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>FPL Cortex</title>
+  <meta name="theme-color" content="#0B1220" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="icon" href="/icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#home" aria-label="FPL Cortex home">FPL <b>CORTEX</b></a>
+    <span class="gw-badge" id="gwBadge">GW —</span>
+    <button class="avatar" id="avatarBtn" type="button" aria-label="Profile and settings">⚙</button>
+  </header>
+  <main id="view" class="view" tabindex="-1"><div class="skeleton-stack"><div class="sk sk-hero"></div><div class="sk"></div><div class="sk"></div></div></main>
+  <nav class="tabbar" aria-label="Main">
+    <a href="#home" data-tab="home"><span class="ico">⌂</span>Home</a>
+    <a href="#team" data-tab="team"><span class="ico">◫</span>Team</a>
+    <a href="#players" data-tab="players"><span class="ico">⌕</span>Players</a>
+    <a href="#live" data-tab="live"><span class="ico">●</span>Live</a>
+    <a href="#ask" data-tab="ask"><span class="ico">✦</span>Ask</a>
+  </nav>
+  <div id="sheetRoot"></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

@@ -5,14 +5,9 @@
  * if FPL ever blocks Vercel's edge network too.
  */
 export const config = { runtime: 'edge' };
+import { fetchFpl } from './_lib/fpl.js';
 
-const FPL = 'https://fantasy.premierleague.com/api';
 const DRAFT = 'https://draft.premierleague.com/api';
-const HEADERS = {
-  'User-Agent': 'Mozilla/5.0 (compatible; FPL-Cortex/2.0; +https://fpl-cortex.vercel.app)',
-  Accept: 'application/json',
-  'Accept-Language': 'en-GB,en;q=0.9',
-};
 
 // [regex, s-maxage seconds]
 const ALLOW = [
@@ -50,12 +45,6 @@ function errCode(s) {
   return s === 403 ? 'FPL_FORBIDDEN' : s === 404 ? 'FPL_TEAM_NOT_FOUND' : s === 429 ? 'FPL_RATE_LIMITED' : s >= 500 || !s ? 'FPL_UNAVAILABLE' : 'FPL_REQUEST_FAILED';
 }
 
-export async function fetchFpl(path, base = (typeof process !== 'undefined' && process.env.FPL_UPSTREAM_BASE) || FPL) {
-  const r = await fetch(`${base.replace(/\/$/, '')}/${path}`, { headers: HEADERS, signal: AbortSignal.timeout(12000) });
-  const text = await r.text();
-  let data = null; try { data = JSON.parse(text); } catch { data = null; }
-  return { ok: r.ok && data !== null, status: r.status, data };
-}
 
 function normalise(p) { return String(p || '').trim().replace(/^\/+/, '').replace(/^api\//, ''); }
 
@@ -69,7 +58,11 @@ export default async function handler(req) {
   try {
     if (route === 'team-search') {
       const query = String(q.get('query') || '').trim().slice(0, 80);
-      if (query.length < 3) return json({ ok: false, error: 'FPL_REQUEST_FAILED', message: 'Search needs at least 3 characters.' }, 400);
+      if (query.length < 3 && !/^\d+$/.test(query)) return json({ ok: false, error: 'FPL_REQUEST_FAILED', message: 'Search needs at least 3 characters.' }, 400);
+      if (/^\d{1,9}$/.test(query)) {
+        const e = await fetchFpl(`entry/${query}/`);
+        return json({ ok: true, results: e.ok ? [{ id: e.data.id, realName: `${e.data.player_first_name} ${e.data.player_last_name}`, teamName: e.data.name, country: e.data.player_region_name || '' }] : [] }, 200, 120);
+      }
       const r = await fetch(`https://api.fplbot.app/search/any?query=${encodeURIComponent(query)}`, { headers: { Accept: 'application/json' } });
       if (!r.ok) return json({ ok: false, error: 'FPL_SEARCH_UNAVAILABLE', message: 'Team search is unavailable.' }, 502);
       const payload = await r.json();
