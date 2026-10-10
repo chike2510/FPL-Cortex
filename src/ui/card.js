@@ -15,8 +15,8 @@ const fix = p => p.upcoming.slice(0, 3).map(f => html`<span class="fdr fdr-${f.d
 export const glow = (v, cls = '') => html`<span class="glow ${cls}" data-v="${v}">${v}</span>`;
 
 export function playerCard(p, { stat = 'xp', tag = '', compact = false, top = false } = {}) {
-  const key = stat === 'price' ? money(p.price) : stat === 'form' ? p.form.toFixed(1) : stat === 'total' ? p.total_points : stat === 'own' ? `${p.selected}%` : p.xp.toFixed(1);
-  const keyLabel = { price: 'price', form: 'form', total: 'pts', own: 'owned' }[stat] || 'xP next';
+  const key = stat === 'price' ? money(p.price) : stat === 'form' ? p.form.toFixed(1) : stat === 'total' ? p.total_points : stat === 'own' ? `${p.selected}%` : stat === 'xg' ? (p.xg90 + p.xa90).toFixed(2) : p.xp.toFixed(1);
+  const keyLabel = { price: 'price', form: 'form', total: 'pts', own: 'owned', xg: 'xGI/90' }[stat] || 'xP next';
   const po = priceOutlook(p);
   if (compact) {
     return html`<button class="row-card${top ? ' top' : ''}" type="button" data-pid="${p.id}"><span class="row-kit">${kit(p, 36)}</span><span class="row-main"><strong>${p.web_name}</strong> ${statusFlag(p)}<small>${p.teamShort} · ${p.pos} · ${money(p.price)}</small></span><span class="row-stat">${tag ? html`<span class="tag">${tag}</span>` : html`<small>${keyLabel}</small>`}<b>${key}</b></span></button>`;

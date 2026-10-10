@@ -24,27 +24,12 @@
   "redirects": [
     {
       "source": "/",
-      "destination": "/classic/",
-      "permanent": false
-    },
-    {
-      "source": "/app/index.html",
-      "destination": "/classic/",
-      "permanent": false
-    },
-    {
-      "source": "/app/",
-      "destination": "/classic/",
+      "destination": "/app/",
       "permanent": false
     },
     {
       "source": "/app",
-      "destination": "/classic/",
-      "permanent": false
-    },
-    {
-      "source": "/app/:path*",
-      "destination": "/classic/",
+      "destination": "/app/",
       "permanent": false
     }
   ],

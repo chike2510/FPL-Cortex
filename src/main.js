@@ -46,5 +46,6 @@ $('#avatarBtn').addEventListener('click', () => { location.hash = '#profile'; })
 document.addEventListener('cortex:settings', () => document.body.classList.toggle('data-saver', !!settings.dataSaver));
 document.body.classList.toggle('data-saver', !!settings.dataSaver);
 getModel().then(m => { $('#gwBadge').textContent = `GW ${m.startGW}`; }).catch(() => {});
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); window.__cortexInstall = e; });
 route();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
