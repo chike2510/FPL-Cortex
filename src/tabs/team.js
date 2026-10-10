@@ -3,7 +3,7 @@ import { html, render, money, toast, fmtNum } from '../lib/dom.js';
 import { getModel, getEntry, getMe, settings } from '../lib/store.js';
 import { api } from '../lib/api.js';
 import { onboardCard, bindOnboard } from '../ui/onboard.js';
-import { kit } from '../ui/card.js';
+import { kit, glow } from '../ui/card.js';
 import { openPlayer } from '../ui/playerSheet.js';
 import { openSheet } from '../ui/sheet.js';
 import { lockedCard, bindPlus } from '../ui/plus.js';
@@ -12,7 +12,7 @@ import { suggestTransfers, captainPicks } from '../../shared/xp.js';
 const FPL_TRANSFERS = 'https://fantasy.premierleague.com/transfers';
 const CHIPS = { wildcard: 'Wildcard', freehit: 'Free Hit', bboost: 'Bench Boost', '3xc': 'Triple Captain', manager: 'Assistant Manager' };
 
-const pitchPlayer = (p, pk) => html`<button class="pp" type="button" data-pid="${p.id}"><span class="pp-kit">${kit(p, 52)}</span>${pk.is_captain ? html`<span class="cap">C</span>` : pk.is_vice_captain ? html`<span class="cap v">V</span>` : ''}<span class="pp-name">${p.web_name}</span><span class="pp-xp">${p.xp.toFixed(1)}</span></button>`;
+const pitchPlayer = (p, pk) => html`<button class="pp" type="button" data-pid="${p.id}" aria-label="${p.web_name}, ${p.pos}, ${p.xp.toFixed(1)} projected"><span class="pp-kit">${kit(p, 44)}</span>${pk.is_captain ? html`<span class="cap">C</span>` : pk.is_vice_captain ? html`<span class="cap v">V</span>` : ''}<span class="pp-name">${p.web_name}</span><span class="pp-xp">${p.xp.toFixed(1)}</span></button>`;
 
 export async function mount(view) {
   if (!settings.entryId) { render(view, onboardCard()); bindOnboard(view, () => mount(view)); return; }
@@ -35,11 +35,12 @@ export async function mount(view) {
   }
 
   render(view, html`
+    <section class="hero-rating" aria-label="Team rating ${rating} out of 100"><div class="cd">${glow(rating)}</div><span class="eyebrow">Team rating / 100</span><span class="faint small">GW${nextGW} projection ${projected.toFixed(1)} pts · ${rows.slice(1).map(r => r.length).join('-')}</span></section>
     <div class="pitch-card">
-      <div class="pitch-head"><div><span class="eyebrow">GW${nextGW} projection</span><div class="big accent">${projected.toFixed(1)}</div></div><div class="rating"><b>${rating}</b><small>team rating</small></div></div>
-      <div class="pitch">${rows.map(r => html`<div class="pitch-row">${r.map(pk => pitchPlayer(P(pk), pk))}</div>`)}</div>
-      <div class="bench">${bench.map(pk => pitchPlayer(P(pk), pk))}</div>
-      <div class="pitch-foot"><span>Bank ${money(entry.bank)}</span><span>Value ${money(entry.value)}</span><button class="btn small" type="button" id="shareBtn">Share card</button></div>
+      <div class="pitch"><i class="pitch-lines" aria-hidden="true"></i>${rows.map(r => html`<div class="pitch-row">${r.map(pk => pitchPlayer(P(pk), pk))}</div>`)}</div>
+      <a class="btn pill accent-pill" href="#team" id="planBtn">Plan transfers →</a>
+      <div class="bench" aria-label="Bench">${bench.map(pk => pitchPlayer(P(pk), pk))}</div>
+      <div class="pitch-foot"><span>Bank ${money(entry.bank)}</span><span>Value ${money(entry.value)}</span><button class="btn pill small" type="button" id="shareBtn">Share →</button></div>
     </div>
     <div class="card" id="capCard"><div class="card-head"><h3>Captain</h3><span class="muted">GW${nextGW}</span></div><div class="sk"></div></div>
     <div class="card" id="trCard"><div class="card-head"><h3>Suggested transfers</h3><span class="muted">next 3 GWs</span></div><div class="sk"></div></div>
@@ -50,6 +51,7 @@ export async function mount(view) {
     </div>`);
 
   view.querySelectorAll('[data-pid]').forEach(b => b.addEventListener('click', () => openPlayer(model, b.dataset.pid)));
+  view.querySelector('#planBtn').addEventListener('click', e => { e.preventDefault(); view.querySelector('#trCard')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
   view.querySelector('#shareBtn').addEventListener('click', () => share(model, entry, xi.map(pk => P(pk))));
 
   const capCard = view.querySelector('#capCard'), trCard = view.querySelector('#trCard'), planner = view.querySelector('#planner');

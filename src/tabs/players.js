@@ -9,7 +9,7 @@ import { priceOutlook } from '../../shared/xp.js';
 const POS = ['GKP', 'DEF', 'MID', 'FWD'];
 const QUICK = [
   { id: 'all', label: 'All' }, ...POS.map(p => ({ id: p, label: p })),
-  { id: 'u6', label: '£6.0 and under' }, { id: 'form', label: 'In form' }, { id: 'diff', label: 'Differentials' }, { id: 'risers', label: 'Price risers' },
+  { id: 'u6', label: '£6.0 and under' }, { id: 'own15', label: 'Under 15%' }, { id: 'form', label: 'In form' }, { id: 'diff', label: 'Differentials' }, { id: 'risers', label: 'Price risers' },
 ];
 const SORTS = { xp: 'Projected points', form: 'Form', price: 'Price', total: 'Total points', own: 'Ownership' };
 const OWN = [{ id: 5, label: 'Under 5%' }, { id: 10, label: 'Under 10%' }, { id: 20, label: 'Under 20%' }];
@@ -25,6 +25,7 @@ function matches(p, s, skip = '') {
     if (POS.includes(s.quick) && p.pos !== s.quick) return false;
     if (s.quick === 'u6' && p.price > 6.0) return false;
     if (s.quick === 'form' && p.form < 5) return false;
+    if (s.quick === 'own15' && p.selected >= 15) return false;
     if (s.quick === 'diff' && !(p.selected < 5 && p.xp >= 4)) return false;
     if (s.quick === 'risers' && priceOutlook(p).dir !== 'up') return false;
   }
@@ -46,7 +47,7 @@ function bestPickTags() {
     const budget = Math.min(...mine.map(p => p.price)) + entry.bank;
     const weakest = mine.reduce((a, b) => (a.xp < b.xp ? a : b));
     const best = model.players.filter(p => p.pos === pos && !entry.ids.includes(p.id) && p.price <= budget && p.status === 'a').sort((a, b) => b.xp - a.xp)[0];
-    if (best && best.xp > weakest.xp) tags.set(best.id, 'Best pick for your team');
+    if (best && best.xp > weakest.xp) tags.set(best.id, 'Best for you');
   }
   return tags;
 }
@@ -54,16 +55,16 @@ function bestPickTags() {
 function draw(view) {
   const list = filtered();
   const tags = bestPickTags();
-  const compact = settings.view === 'compact';
+  const compact = settings.view !== 'cards';
   render($('#pResults', view), html`
-    <div class="result-bar"><b>${list.length} players</b><span class="muted">sorted by ${SORTS[st.sort].toLowerCase()}</span></div>
-    <div class="${compact ? 'list' : 'card-grid'}">${list.slice(0, shown).map(p => playerCard(p, { stat: st.sort === 'own' ? 'own' : st.sort, tag: tags.get(p.id) || '', compact }))}</div>
+    <div class="result-bar"><span class="eyebrow">${list.length} players</span><span class="faint small">by ${SORTS[st.sort].toLowerCase()}</span></div>
+    <div class="${compact ? 'list' : 'card-grid'}">${list.slice(0, shown).map((p, i) => playerCard(p, { stat: st.sort === 'own' ? 'own' : st.sort, tag: i === 0 && compact ? 'Top pick' : tags.get(p.id) || '', compact, top: i === 0 }))}</div>
     ${list.length > shown ? html`<button class="btn block" type="button" id="moreBtn">Show more (${list.length - shown} left)</button>` : ''}`);
   view.querySelectorAll('#pResults [data-pid]').forEach(b => b.addEventListener('click', () => openPlayer(model, b.dataset.pid)));
   $('#moreBtn', view)?.addEventListener('click', () => { shown += 40; draw(view); });
   view.querySelectorAll('[data-quick]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.quick === st.quick)));
   const nf = (st.pos.size ? 1 : 0) + (st.min > 3.5 || st.max < 15.5 ? 1 : 0) + (st.own ? 1 : 0) + (st.avail ? 1 : 0) + (st.easy ? 1 : 0);
-  $('#filterBtn', view).textContent = nf ? `Filter · ${nf}` : 'Filter';
+  $('#filterBtn', view).textContent = nf ? `Filter · ${nf} →` : 'Filter →';
 }
 
 function fdrGrid() {
@@ -140,9 +141,9 @@ export async function mount(view) {
   if (st.mode === 'fixtures') { render(body, fdrGrid()); return; }
   if (st.mode === 'movers') { render(body, movers()); body.querySelectorAll('[data-pid]').forEach(b => b.addEventListener('click', () => openPlayer(model, b.dataset.pid))); return; }
   render(body, html`
-    <div class="search-bar"><input type="search" id="pSearch" placeholder="Players, teams or positions" value="${st.q}" aria-label="Search players, teams or positions"></div>
+    <div class="search-bar"><input type="search" id="pSearch" placeholder="Search players, teams or positions" value="${st.q}" aria-label="Search players, teams or positions"></div>
     <div class="chips" id="quick">${QUICK.map(c => html`<button class="chip" type="button" data-quick="${c.id}" aria-pressed="false">${c.label}</button>`)}</div>
-    <div class="tool-row"><button class="btn small" type="button" id="filterBtn">Filter</button><button class="btn small" type="button" id="sortBtn">Sort</button><div class="seg mini"><button type="button" class="${settings.view !== 'compact' ? 'on' : ''}" data-view="cards" aria-label="Card view">▦</button><button type="button" class="${settings.view === 'compact' ? 'on' : ''}" data-view="compact" aria-label="Compact list">☰</button></div></div>
+    <div class="tool-row"><button class="btn pill" type="button" id="filterBtn">Filter →</button><button class="btn pill" type="button" id="sortBtn">Sort →</button><div class="seg mini"><button type="button" class="${settings.view === 'cards' ? 'on' : ''}" data-view="cards" aria-label="Card view">▦</button><button type="button" class="${settings.view !== 'cards' ? 'on' : ''}" data-view="compact" aria-label="Compact list">☰</button></div></div>
     <div id="pResults"></div>`);
   let t; $('#pSearch', view).addEventListener('input', e => { clearTimeout(t); t = setTimeout(() => { st.q = e.target.value.trim(); shown = 40; draw(view); }, 150); });
   view.querySelectorAll('[data-quick]').forEach(b => b.addEventListener('click', () => { st.quick = b.dataset.quick; shown = 40; draw(view); }));

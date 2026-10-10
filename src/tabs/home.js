@@ -3,13 +3,22 @@ import { getModel, getEntry, getMe, settings } from '../lib/store.js';
 import { news } from '../lib/api.js';
 import { onboardCard, bindOnboard } from '../ui/onboard.js';
 import { captainPicks, priceOutlook } from '../../shared/xp.js';
+import { kit, glow } from '../ui/card.js';
 let timer;
 
 function countdown(deadline) {
   const ms = Date.parse(deadline) - Date.now();
-  if (!(ms > 0)) return 'Deadline passed';
+  if (!(ms > 0)) return html`<span class="cd-done">Deadline passed</span>`;
   const d = Math.floor(ms / 864e5), h = Math.floor(ms / 36e5) % 24, m = Math.floor(ms / 6e4) % 60, s = Math.floor(ms / 1e3) % 60;
-  return d ? `${d}d ${h}h ${m}m` : `${h}h ${m}m ${String(s).padStart(2, '0')}s`;
+  const parts = d ? [[d, 'd'], [h, 'h']] : h ? [[h, 'h'], [m, 'm']] : [[m, 'm'], [String(s).padStart(2, '0'), 's']];
+  return html`${parts.map(([n, u]) => html`${glow(n)}${glow(u, 'unit')}`)}`;
+}
+const dlLabel = (gw, dl) => `Gameweek ${gw} · Deadline ${new Date(dl).toLocaleString('en-GB', { weekday: 'short', hour: '2-digit', minute: '2-digit' }).replace(',', '')}`;
+const shortNum = n => n == null ? '—' : n >= 1e6 ? `${(n / 1e6).toFixed(n >= 1e7 ? 0 : 1)}m` : n >= 1e4 ? `${Math.round(n / 1e3)}k` : fmtNum(n);
+const heroCard = (model, dl) => html`<section class="hero-cd" aria-label="Time to deadline"><span class="eyebrow">${dlLabel(model.startGW, dl)}</span><div class="cd" id="cd" role="timer">${countdown(dl)}</div></section>`;
+function captainCard(model, cap, sub) {
+  const p = cap && model.byId.get(cap.id); if (!p) return '';
+  return html`<a class="card cap-card" href="#team"><span class="eyebrow">Captain pick · GW${model.startGW}</span><div class="cap-body"><span class="cap-kit">${kit(p, 88)}</span><div><h2>${p.web_name}</h2><p class="muted">${p.teamShort} · ${p.pos} · £${p.price.toFixed(1)}m</p><p class="cap-form"><b>${p.form.toFixed(1)}</b> form</p><p class="faint small">${cap.captainXp} projected as captain</p></div></div>${sub ? html`<p class="muted small">${sub}</p>` : ''}</a>`;
 }
 
 function alertsFor(model, ids) {
@@ -29,7 +38,8 @@ export async function mount(view) {
   const model = await getModel();
   const dl = model.deadline;
   if (!settings.entryId) {
-    render(view, html`<div class="card hero"><span class="eyebrow">GW${model.startGW} deadline</span><div class="big" id="cd">${countdown(dl)}</div></div>${onboardCard()}<p class="foot-note">Unofficial · not affiliated with the Premier League or FPL</p>`);
+    const cap = captainPicks(model, model.players.filter(p => p.status === 'a').map(p => p.id))[0];
+    render(view, html`${heroCard(model, dl)}${captainCard(model, cap, 'Top projected captain this gameweek. Add your team for a pick from your own squad.')}${onboardCard()}<p class="foot-note">Unofficial · not affiliated with the Premier League or FPL</p>`);
     bindOnboard(view, () => mount(view));
   } else {
     const [entry, me] = await Promise.all([getEntry(), getMe()]);
@@ -39,17 +49,17 @@ export async function mount(view) {
     const alerts = alertsFor(model, entry.ids);
     const last = entry.history?.current?.slice(-1)[0];
     render(view, html`
-      <div class="card hero"><div class="card-head"><span class="eyebrow">GW${model.startGW} deadline</span><a href="https://fantasy.premierleague.com/my-team" target="_blank" rel="noopener" class="muted">Open FPL ↗</a></div><div class="big" id="cd">${countdown(dl)}</div></div>
-      <div class="card"><div class="card-head"><h3>${e.name}</h3><span class="muted">${e.player_first_name} ${e.player_last_name}</span></div>
-        <div class="stat-row"><div class="stat"><b class="accent">${last?.points ?? e.summary_event_points ?? '—'}</b><small>GW${last?.event ?? model.currentGW} points</small></div><div class="stat"><b>${fmtNum(e.summary_overall_rank)}</b><small>overall rank</small></div><div class="stat"><b>${fmtNum(e.summary_overall_points)}</b><small>total points</small></div></div></div>
-      ${cap ? html`<a class="card link-card" href="#team"><span class="eyebrow">Captain pick · GW${model.startGW}</span><div class="card-head"><h2>${cap.name}</h2><span class="big accent">${cap.captainXp}</span></div><p class="muted">${cap.team} · projected ${cap.xp} pts doubled.${me.plus ? '' : ' Confidence and alternatives with Plus.'}</p></a>` : ''}
+      ${heroCard(model, dl)}
+      ${captainCard(model, cap, me.plus ? '' : 'Confidence and alternatives with Plus.')}
+      <div class="tiles"><div class="tile"><small>GW${last?.event ?? model.currentGW}</small><b>${last?.points ?? e.summary_event_points ?? '—'} pts</b></div><div class="tile"><small>Rank</small><b>${shortNum(e.summary_overall_rank)}</b></div><div class="tile"><small>Bank</small><b>£${entry.bank.toFixed(1)}m</b></div></div>
+      <div class="card"><div class="card-head"><h3>${e.name}</h3><a href="https://fantasy.premierleague.com/my-team" target="_blank" rel="noopener" class="muted">Open FPL ↗</a></div><p class="muted small">${e.player_first_name} ${e.player_last_name} · ${fmtNum(e.summary_overall_points)} total points</p></div>
       <div class="card"><span class="eyebrow">Alerts</span>${alerts.length ? html`<ul class="alerts">${alerts.map(a => html`<li class="lvl-${a.level}">${a.text}</li>`)}</ul>` : html`<p class="muted">No flags in your squad. Nice.</p>`}</div>
       <div id="intel" class="card"><span class="eyebrow">Intel</span><div class="sk"></div></div>
       <p class="foot-note">Unofficial · not affiliated with the Premier League or FPL</p>`);
   }
   clearInterval(timer);
-  timer = setInterval(() => { const el = view.querySelector('#cd'); if (el) el.textContent = countdown(dl); }, 1000);
+  timer = setInterval(() => { const el = view.querySelector('#cd'); if (el) render(el, countdown(dl)); }, 1000);
   const intel = view.querySelector('#intel');
-  if (intel) news().then(n => render(intel, html`<span class="eyebrow">Intel</span>${(n.items || []).slice(0, settings.dataSaver ? 3 : 5).map(i => html`<a class="intel-item" ${i.link ? raw(`href="${esc(i.link)}" target="_blank" rel="noopener"`) : ''}><strong>${i.title}</strong><small class="muted">${i.source}</small></a>`)}`));
+  if (intel) news().then(n => render(intel, html`<span class="eyebrow">Intel</span>${(n.items || []).slice(0, settings.dataSaver ? 3 : 5).map(i => html`<a class="intel-item" ${i.link ? raw(`href="${esc(i.link)}" target="_blank" rel="noopener"`) : ''}><strong>${i.title}</strong><small class="muted">${i.source}</small></a>`)}`)).catch(() => render(intel, html`<span class="eyebrow">Intel</span><p class="muted">News is unavailable right now.</p>`));
 }
 export function unmount() { clearInterval(timer); }

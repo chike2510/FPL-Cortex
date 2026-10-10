@@ -18,3 +18,23 @@
 .bench-start td { border-top: 2px solid var(--sub); }
 .share-img { width: 100%; border-radius: var(--r); aspect-ratio: 1200/630; background: var(--surface-2); }
 .share-btns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+
+/* Molten */
+.hero-rating { padding: 4px 0 2px; gap: 2px; } .hero-rating .cd { font-size: clamp(80px, 24vw, 116px); }
+.pitch-card { display: grid; gap: 10px; } .pitch-card .accent-pill { display: flex; width: max-content; margin: 0 auto; }
+.pitch-card { background: transparent; border: 0; overflow: visible; }
+.pitch { position: relative; border-radius: var(--r); border: 1px solid #2f5a3a; padding: 12px 2px; gap: 6px;
+  background: linear-gradient(180deg, rgba(0,0,0,.25), transparent 30%), repeating-linear-gradient(180deg, #1f5a32 0 40px, #1b5230 40px 80px); }
+.pitch-lines { position: absolute; inset: 0; pointer-events: none; border-radius: var(--r);
+  background: radial-gradient(circle at 50% 50%, transparent 38px, rgba(255,255,255,.22) 39px, rgba(255,255,255,.22) 40px, transparent 41px),
+    linear-gradient(rgba(255,255,255,.22), rgba(255,255,255,.22)) center/100% 1px no-repeat; }
+.pitch-lines::before, .pitch-lines::after { content: ''; position: absolute; left: 28%; right: 28%; height: 13%; border: 1px solid rgba(255,255,255,.22); }
+.pitch-lines::before { top: -1px; border-top: 0; } .pitch-lines::after { bottom: -1px; border-bottom: 0; }
+.pitch-row { position: relative; }
+.pp { width: 70px; }
+.pp-name { font-size: .85rem; font-weight: 600; background: rgba(17,17,17,.88); border-radius: 6px; padding: 0 6px; max-width: 70px; }
+.pp-xp { font-size: .8rem; font-weight: 700; color: var(--accent); }
+.cap { border-radius: 50%; } 
+.bench { border-radius: var(--r); background: var(--surface); border: 1px solid var(--line); }
+.pitch-foot { padding: 10px 2px; }
+.cap-row, .move { border-radius: var(--r); }
