@@ -1,5 +1,5 @@
 /**
- * /api/account?route=config|me|checkout|push-subscribe|push-unsubscribe|link-team (Edge)
+ * /api/account?route=config|me|checkout|push-subscribe|push-prefs|push-unsubscribe|push-test|link-team (Edge)
  * All entitlement decisions happen here, server-side, from the verified Supabase JWT.
  */
 export const config = { runtime: 'edge' };
@@ -62,8 +62,39 @@ export default async function handler(req) {
     if (user) { try { profile = (await rest(`profiles?user_id=eq.${user.id}&select=fpl_entry_id,data_saver&limit=1`))?.[0] || null; } catch { /* */ } }
     return json({ user, plus, profile, auth: supaConfigured(), quotaBackend: redisConfigured() ? 'redis' : 'memory' });
   }
-  if (!user) return json({ error: 'SIGN_IN_REQUIRED' }, 401);
   const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
+
+  // Push alerts work per device, signed in or not. The endpoint URL is the device's unguessable capability.
+  const PREF_KEYS = ['goal', 'assist', 'cs', 'cs_lost', 'red', 'pen_miss', 'bonus', 'deadline', 'prices', 'injuries'];
+  const cleanPrefs = p => { const o = {}; for (const k of PREF_KEYS) o[k] = p?.[k] !== false; const tz = String(p?.tz || '').slice(0, 64); if (/^[A-Za-z_]+(\/[A-Za-z0-9_+-]+)*$/.test(tz)) o.tz = tz; return o; };
+  const endpointOk = e => typeof e === 'string' && /^https:\/\//.test(e) && e.length < 1000;
+  if (route === 'push-subscribe') {
+    const s = body.subscription;
+    if (!endpointOk(s?.endpoint) || !s.keys?.p256dh || !s.keys?.auth) return json({ error: 'Bad subscription' }, 400);
+    await rest('push_subscriptions?on_conflict=endpoint', { method: 'POST', prefer: 'resolution=merge-duplicates', body: { user_id: user?.id || null, endpoint: s.endpoint, p256dh: s.keys.p256dh, auth: s.keys.auth, fpl_entry_id: Number(body.entryId) || null, prefs: cleanPrefs(body.prefs), updated_at: new Date().toISOString() } });
+    return json({ ok: true });
+  }
+  if (route === 'push-prefs') {
+    if (!endpointOk(body.endpoint)) return json({ error: 'Bad endpoint' }, 400);
+    const patch = { prefs: cleanPrefs(body.prefs), updated_at: new Date().toISOString() };
+    if ('entryId' in body) patch.fpl_entry_id = Number(body.entryId) || null;
+    const rows = await rest(`push_subscriptions?endpoint=eq.${encodeURIComponent(body.endpoint)}`, { method: 'PATCH', prefer: 'return=representation', body: patch });
+    return json({ ok: !!rows?.length }, rows?.length ? 200 : 404);
+  }
+  if (route === 'push-unsubscribe') {
+    if (!endpointOk(body.endpoint)) return json({ error: 'Bad endpoint' }, 400);
+    await rest(`push_subscriptions?endpoint=eq.${encodeURIComponent(body.endpoint)}`, { method: 'DELETE' });
+    return json({ ok: true });
+  }
+  if (route === 'push-test') {
+    if (!endpointOk(body.endpoint) || !env('CRON_SECRET')) return json({ error: 'Bad endpoint' }, 400);
+    if (!(await rateLimit(`pushtest:${clientIp(req)}`, 3, 300))) return json({ error: 'Slow down' }, 429);
+    const r = await fetch(`${new URL(req.url).origin}/api/cron/live?test=1`, { method: 'POST', headers: { Authorization: `Bearer ${env('CRON_SECRET')}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint: body.endpoint }) });
+    const o = await r.json().catch(() => ({}));
+    return json({ ok: !!o.ok, pushStatus: o.pushStatus || null }, o.ok ? 200 : 502);
+  }
+
+  if (!user) return json({ error: 'SIGN_IN_REQUIRED' }, 401);
 
   if (route === 'link-team') {
     const entry = Number(String(body.entryId || '').replace(/\D/g, '')) || null;
@@ -78,16 +109,6 @@ export default async function handler(req) {
     if (plan === 'league_pack' && !extra.league_id) return json({ error: 'League ID required' }, 400);
     const out = body.provider === 'paystack' ? await paystackCheckout(user, plan, promo, extra) : await lemonCheckout(user, plan, promo, extra);
     return json(out, out.url ? 200 : 503);
-  }
-  if (route === 'push-subscribe') {
-    const s = body.subscription;
-    if (!s?.endpoint || !/^https:\/\//.test(s.endpoint) || !s.keys?.p256dh || !s.keys?.auth) return json({ error: 'Bad subscription' }, 400);
-    await rest('push_subscriptions?on_conflict=endpoint', { method: 'POST', prefer: 'resolution=merge-duplicates', body: { user_id: user.id, endpoint: s.endpoint, p256dh: s.keys.p256dh, auth: s.keys.auth, fpl_entry_id: Number(body.entryId) || null, prefs: { deadline: true, injuries: true, prices: true, ...(body.prefs || {}) } } });
-    return json({ ok: true });
-  }
-  if (route === 'push-unsubscribe') {
-    await rest(`push_subscriptions?user_id=eq.${user.id}&endpoint=eq.${encodeURIComponent(String(body.endpoint || ''))}`, { method: 'DELETE' });
-    return json({ ok: true });
   }
   return json({ error: 'Unknown route' }, 404);
 }

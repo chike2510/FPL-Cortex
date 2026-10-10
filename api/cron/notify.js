@@ -1,5 +1,5 @@
 /**
- * /api/cron/notify — web push for deadline reminders, injury flags and likely price changes (Node).
+ * /api/cron/notify — daily backup push: deadline (shares the dl24 key with /api/cron/live so it never doubles), injury flags, likely price changes (Node).
  * Triggered by Vercel Cron (vercel.json; Hobby plan = once a day) or any external scheduler
  * calling it with `Authorization: Bearer $CRON_SECRET`.
  * FPL blocks Node serverless IPs, so FPL data is read through our own edge proxy at $APP_URL/api/fpl.
@@ -28,7 +28,7 @@ export default async function handler(req, res) {
 
   for (const s of subs || []) {
     const msgs = [];
-    if (s.prefs?.deadline !== false && hoursToDeadline > 0 && hoursToDeadline <= 26) msgs.push({ key: `deadline:${next.id}`, title: `GW${next.id} deadline in ${Math.round(hoursToDeadline)}h`, body: 'Check your captain and transfers before the deadline.', url: '/app/#team' });
+    if (s.prefs?.deadline !== false && hoursToDeadline > 0 && hoursToDeadline <= 24) msgs.push({ key: `dl24:${next.id}`, title: `⏰ GW${next.id} deadline in ${Math.round(hoursToDeadline)}h`, body: 'Check your captain and transfers before the deadline.', url: '/app/#team' });
     if (s.fpl_entry_id && cur) {
       try {
         const picks = (await fpl(`entry/${s.fpl_entry_id}/event/${cur.id}/picks/`)).picks || [];
