@@ -1,0 +1,20 @@
+.pitch-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+.pitch-head { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; }
+.rating { text-align: center; background: var(--surface-2); border-radius: var(--r); padding: 8px 14px; } .rating b { display: block; font-size: 1.6rem; } .rating small { color: var(--sub); font-size: .7rem; }
+.pitch { background: repeating-linear-gradient(180deg, #123A26 0 44px, #10331F 44px 88px); padding: 14px 4px; display: grid; gap: 12px; }
+.pitch-row { display: flex; justify-content: space-evenly; }
+.pp { position: relative; display: flex; flex-direction: column; align-items: center; width: 72px; min-height: var(--tap); background: none; border: 0; cursor: pointer; padding: 0; }
+.pp-kit svg { display: block; } .data-saver .pp-kit .kit-dot { width: 40px; height: 40px; }
+.pp-name { max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .72rem; font-weight: 700; background: var(--bg); border-radius: var(--r); padding: 1px 6px; margin-top: 2px; }
+.pp-xp { font-size: .72rem; font-weight: 800; color: var(--accent); }
+.cap { position: absolute; top: 0; right: 8px; width: 20px; height: 20px; border-radius: var(--r); background: var(--accent); color: var(--accent-ink); font-size: .7rem; font-weight: 800; display: grid; place-items: center; } .cap.v { background: var(--text); }
+.bench { display: flex; justify-content: space-evenly; padding: 10px 4px; background: var(--surface-2); }
+.pitch-foot { display: flex; align-items: center; gap: 12px; padding: 10px 16px; color: var(--sub); font-size: .85rem; } .pitch-foot .btn { margin-left: auto; }
+.cap-row { display: grid; grid-template-columns: 1fr auto auto 80px auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: var(--r); background: var(--surface-2); }
+.cap-row.top { border: 1px solid var(--accent); } .cap-row:not(:has(.conf)) { grid-template-columns: 1fr auto auto; }
+.conf { height: 8px; background: var(--bg); border-radius: var(--r); overflow: hidden; } .conf i { display: block; height: 100%; background: var(--accent); }
+.move { display: grid; grid-template-columns: 1fr auto 1fr auto; gap: 8px; align-items: center; padding: 10px; background: var(--surface-2); border-radius: var(--r); }
+.move small { color: var(--sub); } .move .out { color: var(--bad); } .move .in { color: var(--good); }
+.bench-start td { border-top: 2px solid var(--sub); }
+.share-img { width: 100%; border-radius: var(--r); aspect-ratio: 1200/630; background: var(--surface-2); }
+.share-btns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }

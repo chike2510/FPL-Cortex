@@ -1,13 +1,14 @@
 {
   "name": "FPL Cortex",
   "short_name": "Cortex",
-  "description": "A focused Fantasy Premier League analytics dashboard.",
-  "start_url": "/",
+  "description": "Unofficial Fantasy Premier League analyst: captain, transfers, live rank.",
+  "id": "/app/",
+  "start_url": "/app/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#07111f",
-  "theme_color": "#07111f",
+  "background_color": "#0B1220",
+  "theme_color": "#0B1220",
   "categories": ["sports", "utilities"],
   "icons": [
     {"src":"/icons/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},
