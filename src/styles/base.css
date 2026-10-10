@@ -194,7 +194,7 @@ select { min-height: 44px; border-radius: var(--pill); border: 1px solid var(--l
 .ts-results .result-bar { display: flex; justify-content: space-between; align-items: baseline; padding: 2px 2px 0; } .ts-results .result-bar .eyebrow { margin: 0; }
 
 /* layout fixes (2026-10-10): tab bodies stack with the view's gap; chip rows never clip */
-#pBody, #tBody, #dBody { display: grid; gap: var(--gap); min-width: 0; align-content: start; }
+#pBody, #tBody, #dBody { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap); min-width: 0; align-content: start; }
 .chips { padding: 2px 1px; align-items: center; }
 .chip { display: inline-flex; align-items: center; justify-content: center; line-height: 1.2; }
 .chips.wrap { padding: 0; }
