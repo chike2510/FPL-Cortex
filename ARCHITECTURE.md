@@ -1,161 +1,38 @@
-# FPL Cortex — Backend Architecture
+# FPL Cortex v2 architecture
 
-## Stack Recommendation
+**Unofficial. Not affiliated with the Premier League or Fantasy Premier League.**
 
-### Why this stack
+## Layout
+| Path | What |
+|---|---|
+| `/` (`index.html`) | Landing page |
+| `/app/` (`app/index.html`, `src/`) | The app: Vite, ES modules, one lazy chunk per tab |
+| `/classic/` (`public/classic/`) | The v1 app, kept read-only while v2 settles (news now via `/api/news`) |
+| `shared/xp.js` | Component xP model (ported from v1), captain picks, transfer suggestions, price outlook. Used by browser **and** API |
+| `shared/kits.js` | Generic kit drawings from club colours (no PL artwork / photo hotlinks) |
+| `api/` | Vercel functions (10). `_lib/` holds shared helpers, not deployed as functions |
+| `supabase/migrations/` | SQL for profiles, subscriptions, webhooks, push, league packs, promo codes |
 
-| Layer | Choice | Reason |
+## App IA (5 tabs)
+Home (deadline, GW score/rank, captain, top-3 alerts, intel) · Team (pitch, rating, captain, transfers + official FPL transfers deep link, chip planner, share card) · Players (search, quick chips, Filter/Sort bottom sheets with price histogram and live counts, cards/compact toggle, FDR grid, price movers, "Best pick for your team") · Live (live points + provisional bonus, rank trend, rivals with EO/swing, mini-leagues, league recap) · Ask (AI analyst). Profile/settings behind the gear (sign-in, Plus, data saver, alerts, Draft add-on, League Pack, classic link).
+
+## API
+| Function | Runtime | Notes |
 |---|---|---|
-| Frontend | Vanilla JS PWA (current) | Works. No framework debt. |
-| API | Vercel Serverless Functions | Already deployed. Keep it. |
-| Database | **Supabase (PostgreSQL)** | Open source. Self-hostable. Standard SQL. Portable. |
-| Auth | **Supabase Auth** | JWT-based. Works standalone. Can self-host on any VPS. |
-| ORM | **Drizzle ORM** | Lightweight. Type-safe. Works with any PostgreSQL. |
-| FPL Layer | `/api/fpl.js` (new) | Single entry point. All FPL calls go here. |
+| `api/fpl.js` | Edge | Whitelisted public FPL paths + legacy routes; CDN cache (bootstrap 5m, fixtures 2m, live 30s, s-maxage + SWR). FPL 403s Node serverless IPs; Edge works |
+| `api/ai.js` | Edge | Groq with tool calling (`get_player`, `get_fixtures`, `get_my_squad`, `compare_players`); same-origin only; 8/min/IP; free = 3 questions/GW; Plus unlimited (60/h fair use); token caps |
+| `api/account.js` | Edge | `config`, `me`, `checkout` (Lemon Squeezy / Paystack), `push-subscribe`, `link-team` |
+| `api/plus.js` | Edge | Plus-only `captain`, `transfers`, `planner`; `league-recap` (Plus or League Pack). Entitlement verified server-side from Supabase JWT + `subscriptions` |
+| `api/billing/[provider].js` | Edge | Lemon Squeezy (HMAC-SHA256 `X-Signature`) and Paystack (HMAC-SHA512 `x-paystack-signature`) webhooks; idempotent via `webhook_events`; promo attribution |
+| `api/og.js` | Edge | `@vercel/og` team card / award card PNG; `format=html` share page with OG tags |
+| `api/news.js` | Edge | Server-side RSS (BBC, Sky, Guardian, ESPN, 90min), plain text only |
+| `api/cron/notify.js` | Node | Web push: deadline (≤26h), injury flags, likely price changes. Reads FPL through our edge proxy |
+| `api/fpl-companion.js` | Node | Browser-companion refresh-token session only. Password login removed |
+| `api/weather.js` | Node | Unchanged |
 
-### Why Supabase over Firebase/PlanetScale/Mongo
+## Security
+- No FPL passwords anywhere. Team ID / team-name search only.
+- Every rendered string goes through `src/lib/dom.js` `html```, which escapes interpolations.
+- Plus is never decided in the browser.
 
-- It's just **PostgreSQL** under the hood — if you leave Supabase, your data moves with you
-- Self-hostable on Hetzner, Railway, Coolify, Docker — zero vendor lock-in
-- Auth is standard JWT — works the same anywhere
-- Free tier is generous enough to launch
-
----
-
-## Database Schema
-
-```sql
--- Users (extends Supabase auth.users)
-CREATE TABLE users (
-  id          UUID PRIMARY KEY REFERENCES auth.users(id),
-  fpl_entry_id INTEGER,
-  fpl_cookie  TEXT,          -- encrypted FPL session cookie
-  username    TEXT,
-  is_pro      BOOLEAN DEFAULT false,
-  created_at  TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Saved teams (squad snapshots)
-CREATE TABLE saved_teams (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id     UUID REFERENCES users(id) ON DELETE CASCADE,
-  name        TEXT NOT NULL,
-  gameweek    INTEGER,
-  players     JSONB NOT NULL,   -- array of player IDs
-  captain_id  INTEGER,
-  vc_id       INTEGER,
-  created_at  TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Watchlists
-CREATE TABLE watchlist (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id     UUID REFERENCES users(id) ON DELETE CASCADE,
-  player_id   INTEGER NOT NULL,
-  added_at    TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(user_id, player_id)
-);
-
--- AI conversation history
-CREATE TABLE ai_history (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id     UUID REFERENCES users(id) ON DELETE CASCADE,
-  role        TEXT NOT NULL,    -- 'user' | 'assistant'
-  content     TEXT NOT NULL,
-  gameweek    INTEGER,
-  created_at  TIMESTAMPTZ DEFAULT NOW()
-);
-
--- User preferences
-CREATE TABLE preferences (
-  user_id     UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-  theme       TEXT DEFAULT 'dark',
-  kit_primary TEXT DEFAULT '#1e3a5f',
-  kit_secondary TEXT DEFAULT '#ffffff',
-  fav_team    INTEGER,
-  notifs      JSONB DEFAULT '{}',
-  updated_at  TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Premium subscriptions (future)
-CREATE TABLE subscriptions (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id     UUID REFERENCES users(id) ON DELETE CASCADE,
-  plan        TEXT DEFAULT 'free',    -- 'free' | 'pro'
-  started_at  TIMESTAMPTZ,
-  expires_at  TIMESTAMPTZ,
-  stripe_id   TEXT
-);
-```
-
----
-
-## FPL Data Flow (fixed)
-
-```
-Frontend
-  |
-  | fetch('/api/fpl?path=/bootstrap-static/')
-  ↓
-/api/fpl.js  (unified service)
-  |
-  | — checks in-memory cache
-  | — adds FPL headers + cookie if auth=1
-  | — retries on failure (2x)
-  | — formats errors consistently
-  ↓
-fantasy.premierleague.com/api
-  |
-  ↓
-Returns JSON → cached → sent to frontend
-```
-
-**Public endpoints (no auth):**
-- `/bootstrap-static/` — all players, teams, gameweek info
-- `/fixtures/` — all fixtures
-- `/event/{gw}/live/` — live GW scores
-- `/entry/{id}/` — manager profile
-- `/entry/{id}/history/` — season history
-
-**Auth endpoints (need FPL cookie):**
-- `/my-team/{id}/` — current picks + chips
-- `/entry/{id}/event/{gw}/picks/` — GW picks
-- `/leagues-classic/{id}/standings/` — league standings
-
----
-
-## FPL Authentication Fix
-
-The old approach stored cookies in localStorage (insecure, breaks on refresh).
-
-**New approach:**
-1. User logs in via `/api/fpl` POST with email + password
-2. Server fetches FPL session cookie (never exposed to frontend)
-3. Cookie stored encrypted in Supabase `users.fpl_cookie`
-4. All authenticated FPL requests: frontend sends Supabase JWT → server decrypts FPL cookie → forwards to FPL
-
----
-
-## Moving Away From Vercel
-
-When ready to move:
-
-1. **Database**: Already portable — it's Postgres. `pg_dump` → restore anywhere
-2. **Auth**: Export Supabase users → re-import to self-hosted Supabase or Auth.js
-3. **API**: The `/api/fpl.js` service is plain Node.js — wrap in Express and deploy anywhere
-4. **Frontend**: Static files — serve from Nginx, Cloudflare Pages, or any CDN
-
-No rebuild needed. Just redeploy.
-
----
-
-## Root Causes of Current FPL Issues
-
-| Issue | Root Cause | Fix |
-|---|---|---|
-| Players page not loading | `fplFetch` used 4 public CORS proxies that are rate-limited/blocked | Replaced with `/api/fpl.js` server-side proxy |
-| Team import not working | `/api/myteam.js` forwarded cookie header incorrectly | Unified service handles cookie forwarding |
-| Manager search broken | `/search/` endpoint doesn't exist on FPL API | Now uses `/entry/{id}/` lookup |
-| Leagues not loading | Missing auth cookie on requests | `fplFetch(path, true)` now sends cookie |
-| Loading screen stuck | Syntax error in `script.js` from bad regex replacements | Fixed: `node --check` passes clean |
-| Stats strip doubled | Injected static HTML + JS-generated HTML both rendering | Removed static duplicate |
+See `.env.example` for configuration.
