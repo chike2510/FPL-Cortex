@@ -2,7 +2,7 @@
 import { fpl, api } from './api.js';
 import { buildModel } from '../../shared/xp.js';
 const SKEY = 'cortex_v2_settings';
-const defaults = { entryId: null, dataSaver: false, view: 'cards', rivals: [] };
+const defaults = { entryId: null, dataSaver: false, view: 'compact', rivals: [] };
 export const settings = { ...defaults, ...(JSON.parse(localStorage.getItem(SKEY) || '{}')) };
 export function saveSettings(patch) { Object.assign(settings, patch); localStorage.setItem(SKEY, JSON.stringify(settings)); document.dispatchEvent(new CustomEvent('cortex:settings')); }
 

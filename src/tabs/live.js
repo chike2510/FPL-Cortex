@@ -41,6 +41,24 @@ function rankTrend(history) {
   return html`<div class="rank-trend"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="3" vector-effect="non-scaling-stroke"/></svg><span class="muted small">Rank GW${cur[0].event}–${last.event}: <b class="mv ${up ? 'up' : 'down'}">${up ? '▲' : '▼'} ${fmtNum(Math.abs(prev.overall_rank - last.overall_rank))}</b> last week</span></div>`;
 }
 
+let chartMode = 'points';
+function chart(history, m) {
+  const cur = (history?.current || []).filter(h => m === 'points' ? true : h.overall_rank);
+  if (cur.length < 2) return html`<p class="muted small">The chart appears after two gameweeks.</p>`;
+  const v = h => m === 'points' ? h.points : h.overall_rank, vals = cur.map(v), max = Math.max(...vals), min = Math.min(...vals);
+  const y = x => { const t = max === min ? .5 : (x - min) / (max - min); return (m === 'points' ? 92 - t * 84 : 8 + t * 84).toFixed(1); };
+  const pts = cur.map((h, i) => `${(i / (cur.length - 1) * 100).toFixed(1)},${y(v(h))}`).join(' ');
+  return html`<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-label="Season ${m} chart"><polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="2.5" vector-effect="non-scaling-stroke"/></svg><div class="card-head"><small class="faint">GW${cur[0].event}</small><small class="muted">${m === 'points' ? `best ${max} · worst ${min}` : `best ${fmtNum(min)} · worst ${fmtNum(max)}`}</small><small class="faint">GW${cur[cur.length - 1].event}</small></div>`;
+}
+function season(entry) {
+  const cur = entry.history?.current || [], chips = entry.history?.chips || [];
+  const ranks = cur.map(h => h.overall_rank).filter(Boolean);
+  const ch = [['Century Club', 'Score 100+ in a gameweek', cur.some(g => g.points >= 100)], ['Green Arrow', 'Gain 100k+ rank in a week', cur.some((g, i) => i && cur[i - 1].overall_rank - g.overall_rank >= 100000)],
+    ['Top 100k', 'Reach a top-100k overall rank', ranks.some(r => r <= 100000)], ['Chip Master', 'Use four chips', chips.length >= 4], ['Bench Respect', 'Leave under 5 on the bench all season', cur.length > 3 && cur.every(g => g.points_on_bench < 5)], ['Budget Boss', 'Team value £105m+', (entry.value || 0) >= 105]];
+  return html`<div class="card"><div class="card-head"><h3>Season</h3><div class="chips"><button class="chip ${chartMode === 'points' ? 'on' : ''}" type="button" data-chart="points">Points</button><button class="chip ${chartMode === 'rank' ? 'on' : ''}" type="button" data-chart="rank">Rank</button></div></div><div class="chart" id="seasonChart">${chart(entry.history, chartMode)}</div>
+    <span class="eyebrow">Challenges · ${ch.filter(c => c[2]).length}/${ch.length}</span><div class="chips wrap">${ch.map(([n, d, done]) => html`<span class="chip ${done ? 'on' : ''}" title="${d}">${done ? '✓ ' : ''}${n}</span>`)}</div></div>`;
+}
+
 async function rivalPicks(entryId, gw) { try { return await fpl(`entry/${entryId}/event/${gw}/picks/`, 60); } catch { return null; } }
 
 export async function mount(view) {
@@ -62,12 +80,27 @@ export async function mount(view) {
       <div class="stat-row"><div class="stat"><b class="accent big">${mine.total}</b><small>live points${mine.chip ? ' · ' + mine.chip : ''}</small></div><div class="stat"><b>${ev?.average_entry_score ?? '—'}</b><small>GW average</small></div><div class="stat"><b>${fmtNum(entry.entry.summary_overall_rank)}</b><small>overall rank (FPL)</small></div></div>
       ${rankTrend(entry.history)}
       <p class="muted small">Includes provisional bonus from BPS. FPL updates official rank a few times a day.</p></div>
+    ${season(entry)}
     <div class="card"><h3>Your players</h3><div class="list">${mine.rows.filter(r => r.mult > 0 || r.pos <= 11).map(r => { const p = P(r.id); const st = live.get(r.id)?.stats || {}; const b = st.bonus || bonus.get(r.id) || 0; return p ? html`<div class="live-row"><span><strong>${p.web_name}</strong>${r.mult > 1 ? html` <span class="tag">x${r.mult}</span>` : ''}<small class="muted"> ${p.teamShort} · ${st.minutes || 0}'</small></span>${b ? html`<span class="bonus">+${b} bonus</span>` : html`<span></span>`}<b>${r.pts * Math.max(1, r.mult)}</b></div>` : ''; })}</div></div>
     <div class="card"><div class="card-head"><h3>Rivals</h3><button class="btn small" type="button" id="addRival">Add rival</button></div>
       ${rivalData.length ? html`<div class="list">${rivalData.map(r => { const s = r.picks ? score(r.picks, live, bonus) : null; const gap = s ? mine.total - s.total : 0; return html`<button class="row-card" type="button" data-rival="${r.id}"><span class="row-kit">⚔</span><span class="row-main"><strong>${r.name}</strong><small>${s ? 'live ' + s.total : 'no picks yet'}</small></span><span></span><span class="row-stat"><b class="${gap >= 0 ? 'mv up' : 'mv down'}">${gap >= 0 ? '+' : ''}${gap}</b><small>gap</small></span></button>`; })}</div>` : html`<p class="muted">Add a rival by Team ID or from a mini-league below to see the live gap and the differentials deciding it.</p>`}</div>
+    <div class="card"><div class="card-head"><h3>Score simulator</h3><button class="btn small" type="button" id="simBtn">What if…</button></div><p class="muted small">Change any player's points to see where your gameweek could land.</p></div>
+    <div class="card"><div class="card-head"><h3>Battle</h3><span class="muted">any two teams</span></div><form class="inline-form" id="batForm"><input id="bat1" inputmode="numeric" placeholder="Team ID" value="${settings.entryId}" aria-label="First Team ID"><input id="bat2" inputmode="numeric" placeholder="Team ID" aria-label="Second Team ID"><button class="btn primary" type="submit">Go</button></form><div id="batOut"></div></div>
     <div class="card"><h3>Mini-leagues</h3>${leagues.length ? html`<div class="list">${leagues.map(l => html`<button class="row-card" type="button" data-league="${l.id}"><span class="row-kit">🏆</span><span class="row-main"><strong>${l.name}</strong><small>rank ${fmtNum(l.entry_rank)} ${l.entry_last_rank ? (l.entry_rank < l.entry_last_rank ? '▲' : l.entry_rank > l.entry_last_rank ? '▼' : '') : ''}</small></span><span></span><span class="row-stat">›</span></button>`)}</div>` : html`<p class="muted">No private classic leagues found.</p>`}</div>`);
 
   view.querySelector('#addRival').addEventListener('click', () => addRival(view));
+  view.querySelectorAll('[data-chart]').forEach(b => b.addEventListener('click', () => { chartMode = b.dataset.chart; render(view.querySelector('#seasonChart'), chart(entry.history, chartMode)); view.querySelectorAll('[data-chart]').forEach(x => x.classList.toggle('on', x === b)); }));
+  view.querySelector('#simBtn').addEventListener('click', () => simulate(model, entry.picks, live, bonus));
+  view.querySelector('#batForm').addEventListener('submit', async e => {
+    e.preventDefault(); const ids = ['#bat1', '#bat2'].map(q => Number(view.querySelector(q).value.replace(/\D/g, ''))); const out = view.querySelector('#batOut');
+    if (!ids[0] || !ids[1]) return toast('Enter two Team IDs');
+    render(out, html`<div class="sk"></div>`);
+    try {
+      const rs = await Promise.all(ids.map(async id => { const [en, pk] = await Promise.all([fpl(`entry/${id}/`, 300), fpl(`entry/${id}/event/${gw}/picks/`, 60)]); return { en, s: score(pk, live, bonus) }; }));
+      const [a, b2] = rs, w = a.s.total === b2.s.total ? null : a.s.total > b2.s.total ? a : b2;
+      render(out, html`<div class="stat-row">${rs.map(r => html`<div class="stat ${w === r ? 'win' : ''}"><b class="${w === r ? 'accent' : ''}">${r.s.total}</b><small>${r.en.name}</small></div>`)}</div><p class="muted small">${w ? `${w.en.name} lead by ${Math.abs(a.s.total - b2.s.total)} (live, incl. provisional bonus).` : 'Level on points.'}</p>`);
+    } catch { render(out, html`<p class="muted">Couldn't load one of those teams.</p>`); }
+  });
   view.querySelectorAll('[data-rival]').forEach(b => b.addEventListener('click', () => { const r = rivalData.find(x => String(x.id) === b.dataset.rival); compare(model, entry.picks, r, live, bonus); }));
   view.querySelectorAll('[data-league]').forEach(b => b.addEventListener('click', () => openLeague(view, model, Number(b.dataset.league), leagues.find(l => String(l.id) === b.dataset.league)?.name)));
   clearInterval(timer);
@@ -97,7 +130,18 @@ async function openLeague(view, model, leagueId, name) {
   const sheet = openSheet({ title: name || 'League', body: html`<div class="sk"></div>`, footer: html`<button class="btn primary block" type="button" id="recapBtn">Weekly recap & awards</button>` });
   try {
     const st = await fpl(`leagues-classic/${leagueId}/standings/`, 120);
-    render(sheet.querySelector('.sheet-body'), html`<div class="list">${(st.standings?.results || []).slice(0, 25).map(r => html`<div class="live-row"><span><strong>${r.rank}. ${r.entry_name}</strong><small class="muted"> ${r.player_name} · GW ${r.event_total}</small></span><b>${r.total}</b><button class="btn small" type="button" data-addrival="${r.entry}">Rival</button></div>`)}</div>`);
+    const res = st.standings?.results || [], me = res.findIndex(r => r.entry === settings.entryId);
+    const near = me < 0 ? [] : res.slice(Math.max(0, me - 1), me + 2);
+    render(sheet.querySelector('.sheet-body'), html`${near.length ? html`<div class="card"><span class="eyebrow">Around you</span><div class="list">${near.map(r => html`<div class="live-row"><span><strong>${r.rank}. ${r.entry_name}</strong>${r.entry === settings.entryId ? html` <span class="tag">You</span>` : ''}</span><span class="muted">GW ${r.event_total}</span><b class="${r.total - res[me].total > 0 ? 'mv down' : r.total - res[me].total < 0 ? 'mv up' : ''}">${r.entry === settings.entryId ? r.total : (r.total - res[me].total > 0 ? '+' : '') + (r.total - res[me].total)}</b></div>`)}</div></div>` : ''}<button class="btn pill small" type="button" id="warBtn">War room: what the top 10 own →</button><div id="warOut"></div><div class="list">${res.slice(0, 25).map(r => html`<div class="live-row"><span><strong>${r.rank}. ${r.entry_name}</strong><small class="muted"> ${r.player_name} · GW ${r.event_total}</small></span><b>${r.total}</b><button class="btn small" type="button" data-addrival="${r.entry}">Rival</button></div>`)}</div>`);
+    sheet.querySelector('#warBtn').addEventListener('click', async () => {
+      const out = sheet.querySelector('#warOut'); render(out, html`<div class="sk"></div>`);
+      const gw = model.currentGW || model.startGW, top = res.slice(0, 10);
+      const ps = (await Promise.all(top.map(r => rivalPicks(r.entry, gw)))).filter(Boolean);
+      const cnt = new Map(), caps = new Map(); ps.forEach(p => p.picks.forEach(x => { cnt.set(x.element, (cnt.get(x.element) || 0) + 1); if (x.is_captain) caps.set(x.element, (caps.get(x.element) || 0) + 1); }));
+      const mine = new Set((await getEntry()).ids);
+      const rows = [...cnt.entries()].sort((a, b) => b[1] - a[1]).slice(0, 15);
+      render(out, html`<div class="list">${rows.map(([id, n]) => { const p = model.byId.get(id); return html`<div class="live-row"><span><strong>${p?.web_name || id}</strong>${caps.get(id) ? html`<small class="muted"> · C×${caps.get(id)}</small>` : ''}</span><span class="${mine.has(id) ? 'accent' : 'mv down'} small">${mine.has(id) ? 'you own' : 'missing'}</span><b>${Math.round(n / ps.length * 100)}%</b></div>`; })}</div>`);
+    });
     sheet.querySelectorAll('[data-addrival]').forEach(b => b.addEventListener('click', async () => { const id = Number(b.dataset.addrival); const row = st.standings.results.find(r => r.entry === id); saveSettings({ rivals: [...(settings.rivals || []).filter(r => r.id !== id), { id, name: row.entry_name }].slice(-5) }); toast('Rival added'); mount(view); }));
   } catch { render(sheet.querySelector('.sheet-body'), html`<p class="muted">Couldn't load standings.</p>`); }
   sheet.querySelector('#recapBtn').addEventListener('click', async () => {
@@ -114,5 +158,15 @@ function leaguePackOffer(leagueId, msg) {
     s.querySelector('#orPlus').addEventListener('click', () => openPlus());
     s.querySelector('#buyPack').addEventListener('click', async () => { const r = await api('/api/account?route=checkout', { method: 'POST', body: { plan: 'league_pack', leagueId } }); if (r.data?.url) location.href = r.data.url; else toast(r.status === 401 ? 'Sign in from Profile first' : 'League Packs open soon'); });
   } });
+}
+function simulate(model, picksData, live, bonus) {
+  const base = score(picksData, live, bonus); const pts = new Map(base.rows.map(r => [r.id, r.pts]));
+  const hit = picksData?.entry_history?.event_transfers_cost || 0;
+  const total = () => base.rows.reduce((s, r) => s + (pts.get(r.id) || 0) * r.mult, 0) - hit;
+  const body = () => html`<div class="stat-row"><div class="stat"><b class="accent big">${total()}</b><small>simulated · live ${base.total}</small></div></div><div class="list">${base.rows.filter(r => r.mult > 0).map(r => html`<div class="live-row"><span><strong>${model.byId.get(r.id)?.web_name}</strong>${r.mult > 1 ? html` <span class="tag">x${r.mult}</span>` : ''}</span><span class="sim"><button class="btn pill small" type="button" data-d="-1" data-id="${r.id}" aria-label="Minus one">−</button><button class="btn pill small" type="button" data-d="1" data-id="${r.id}" aria-label="Plus one">+</button></span><b>${pts.get(r.id)}</b></div>`)}</div>`;
+  const sheet = openSheet({ title: 'Score simulator', body: body(), footer: html`<button class="btn block" type="button" id="simReset">Reset to live</button>` });
+  const bind = () => sheet.querySelectorAll('[data-d]').forEach(b => b.addEventListener('click', () => { const id = Number(b.dataset.id); pts.set(id, (pts.get(id) || 0) + Number(b.dataset.d)); render(sheet.querySelector('.sheet-body'), body()); bind(); }));
+  sheet.querySelector('#simReset').addEventListener('click', () => { base.rows.forEach(r => pts.set(r.id, r.pts)); render(sheet.querySelector('.sheet-body'), body()); bind(); });
+  bind();
 }
 export function unmount() { clearInterval(timer); }

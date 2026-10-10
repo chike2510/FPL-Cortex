@@ -4,24 +4,27 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>FPL Cortex</title>
-  <meta name="theme-color" content="#0B1220" />
+  <meta name="theme-color" content="#111111" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Smooch+Sans:wght@400..800&display=swap" />
   <link rel="manifest" href="/manifest.json" />
   <link rel="icon" href="/icons/icon-192.png" />
   <link rel="apple-touch-icon" href="/icons/icon-192.png" />
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="#home" aria-label="FPL Cortex home">FPL <b>CORTEX</b></a>
+    <a class="brand" href="#home" aria-label="FPL Cortex home">CORTEX</a>
     <span class="gw-badge" id="gwBadge">GW —</span>
     <button class="avatar" id="avatarBtn" type="button" aria-label="Profile and settings">⚙</button>
   </header>
   <main id="view" class="view" tabindex="-1"><div class="skeleton-stack"><div class="sk sk-hero"></div><div class="sk"></div><div class="sk"></div></div></main>
   <nav class="tabbar" aria-label="Main">
-    <a href="#home" data-tab="home"><span class="ico">⌂</span>Home</a>
-    <a href="#team" data-tab="team"><span class="ico">◫</span>Team</a>
-    <a href="#players" data-tab="players"><span class="ico">⌕</span>Players</a>
-    <a href="#live" data-tab="live"><span class="ico">●</span>Live</a>
-    <a href="#ask" data-tab="ask"><span class="ico">✦</span>Ask</a>
+    <a href="#home" data-tab="home"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11 12 4l9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Home</a>
+    <a href="#team" data-tab="team"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3 4 5 2 10l3 1.5V21h14v-9.5L22 10l-2-5-4-2c-.5 1.7-2 3-4 3S8.5 4.7 8 3z"/></svg>Team</a>
+    <a href="#players" data-tab="players"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>Players</a>
+    <a href="#live" data-tab="live"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m10 8 6 4-6 4z"/></svg>Live</a>
+    <a href="#ask" data-tab="ask"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>Ask</a>
   </nav>
   <div id="sheetRoot"></div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
