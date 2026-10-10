@@ -51,3 +51,6 @@
 .soh { display: grid; gap: 6px; margin-top: 8px; } .soh .tag { justify-self: start; }
 .move { grid-template-columns: 1fr auto 1fr auto; }
 .bench, .sub-bar { scroll-margin-bottom: calc(90px + env(safe-area-inset-bottom)); }
+/* 360px: five-across rows must fit 328px */
+.pp { flex: 0 1 70px; min-width: 0; } .pp > * { max-width: 100%; }
+.pitch-card, #pitchMount, .bench { min-width: 0; max-width: 100%; }
