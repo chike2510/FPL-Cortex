@@ -54,3 +54,4 @@
 /* 360px: five-across rows must fit 328px */
 .pp { flex: 0 1 70px; min-width: 0; } .pp > * { max-width: 100%; }
 .pitch-card, #pitchMount, .bench { min-width: 0; max-width: 100%; }
+.pitch { grid-template-columns: minmax(0, 1fr); } .bench { overflow: hidden; }
