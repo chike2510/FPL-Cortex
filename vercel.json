@@ -13,13 +13,27 @@
       "destination": "/classic/index.html"
     },
     {
-      "source": "/v2/:path*",
+      "source": "/v2",
+      "destination": "/app/index.html"
+    },
+    {
+      "source": "/v2/",
       "destination": "/app/index.html"
     }
   ],
   "redirects": [
     {
       "source": "/",
+      "destination": "/classic/",
+      "permanent": false
+    },
+    {
+      "source": "/app/index.html",
+      "destination": "/classic/",
+      "permanent": false
+    },
+    {
+      "source": "/app/",
       "destination": "/classic/",
       "permanent": false
     },
