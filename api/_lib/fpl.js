@@ -4,12 +4,28 @@ import { buildModel } from '../../shared/xp.js';
 const FPL = 'https://fantasy.premierleague.com/api';
 const HEADERS = { 'User-Agent': 'Mozilla/5.0 (compatible; FPL-Cortex/2.0; +https://fpl-cortex.vercel.app)', Accept: 'application/json', 'Accept-Language': 'en-GB,en;q=0.9' };
 
-export async function fetchFpl(path, base) {
-  const b = (base || env('FPL_UPSTREAM_BASE') || FPL).replace(/\/$/, '');
-  const r = await fetch(`${b}/${String(path).replace(/^\/+/, '')}`, { headers: HEADERS, signal: AbortSignal.timeout(12000) });
+const BROWSER = { ...HEADERS, 'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Mobile Safari/537.36', Referer: 'https://fantasy.premierleague.com/' };
+const transient = s => s === 403 || s === 429 || s >= 500 || !s;
+async function once(url, headers) {
+  const r = await fetch(url, { headers, signal: AbortSignal.timeout(10000) });
   const text = await r.text();
   let data = null; try { data = JSON.parse(text); } catch { data = null; }
-  return { ok: r.ok && data !== null, status: r.status, data };
+  return { ok: r.ok && data !== null, status: r.status || (data === null ? 502 : 0), data };
+}
+// FPL's CDN throws short bursts of 403/429/503 (bot checks, nightly updates). Retry with a
+// browser-style request, then the optional Worker upstream, before giving up.
+export async function fetchFpl(path, base) {
+  const p = String(path).replace(/^\/+/, '');
+  const b = (base || env('FPL_UPSTREAM_BASE') || FPL).replace(/\/$/, '');
+  let r;
+  try { r = await once(`${b}/${p}`, HEADERS); } catch { r = { ok: false, status: 0 }; }
+  if (r.ok || !transient(r.status)) return r;
+  await new Promise(res => setTimeout(res, 350));
+  try { r = await once(`${b}/${p}`, BROWSER); } catch { r = { ok: false, status: r.status || 0 }; }
+  if (r.ok || base) return r;
+  const alt = env('FPL_UPSTREAM_BASE') ? FPL : env('FPL_FALLBACK_BASE');
+  if (alt) { try { const a = await once(`${alt.replace(/\/$/, '')}/${p}`, BROWSER); if (a.ok) return a; } catch { /* keep r */ } }
+  return r;
 }
 
 let cache = { at: 0, model: null };

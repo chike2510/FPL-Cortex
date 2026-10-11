@@ -35,7 +35,7 @@ async function route() {
   } catch (e) {
     console.error(e);
     if (my !== seq) return;
-    render(view, html`<div class="card empty"><h3>Couldn't load this</h3><p class="muted">${e.status === 403 ? 'FPL is refusing connections right now.' : esc(e.message || 'Network problem')}</p><button class="btn primary" type="button" id="retryBtn">Try again</button></div>`);
+    render(view, html`<div class="card empty"><h3>Couldn't load this</h3><p class="muted">${[403, 429, 503].includes(e.status) ? 'FPL is busy right now, often during its nightly update. Give it a minute.' : !e.status ? 'Check your connection and try again.' : esc(e.message || 'Network problem')}</p><button class="btn primary" type="button" id="retryBtn">Try again</button></div>`);
     $('#retryBtn')?.addEventListener('click', () => { getModel(true); route(); });
   }
   window.scrollTo(0, 0);

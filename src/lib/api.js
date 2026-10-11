@@ -12,9 +12,18 @@ export async function fpl(path, ttlSec = 60) {
   const { fplProxyBase } = await getConfig();
   const base = fplProxyBase || '/api/fpl';
   const url = base.startsWith('/api/fpl') ? `${base}?path=${encodeURIComponent(path)}` : `${base.replace(/\/$/, '')}/${path}`;
-  const r = await fetch(url);
-  const data = await r.json().catch(() => null);
-  if (!r.ok || !data || data.ok === false) { const e = new Error(data?.message || `FPL ${r.status}`); e.status = r.status; throw e; }
+  let r, data;
+  for (let i = 0; i < 3; i++) {
+    r = await fetch(url).catch(() => ({ ok: false, status: 0, json: async () => null }));
+    data = await r.json().catch(() => null);
+    if (r.ok && data && data.ok !== false) break;
+    if (!(r.status === 403 || r.status === 429 || r.status >= 500 || !r.status) || i === 2) break;
+    await new Promise(res => setTimeout(res, 900 * (i + 1)));
+  }
+  if (!r.ok || !data || data.ok === false) {
+    if (hit) return hit.data; // older copy beats an error screen
+    const e = new Error(data?.message || `FPL ${r.status}`); e.status = r.status; throw e;
+  }
   mem.set(path, { at: Date.now(), data });
   return data;
 }

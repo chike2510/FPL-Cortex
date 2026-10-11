@@ -36,7 +36,7 @@ const json = (body, status = 200, ttl = 0) => new Response(JSON.stringify(body),
   status,
   headers: {
     'Content-Type': 'application/json; charset=utf-8',
-    'Cache-Control': ttl ? `public, max-age=${Math.min(ttl, 60)}, s-maxage=${ttl}, stale-while-revalidate=${ttl * 4}` : 'no-store',
+    'Cache-Control': ttl ? `public, max-age=${Math.min(ttl, 60)}, s-maxage=${ttl}, stale-while-revalidate=${ttl * 4}, stale-if-error=86400` : 'no-store',
     'X-Cortex-Proxy': 'edge',
   },
 });

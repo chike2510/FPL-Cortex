@@ -1,11 +1,20 @@
 /* FPL Cortex v2 service worker: app shell cache, network-first API, web push. */
-const CACHE = 'cortex-v2-3';
+const CACHE = 'cortex-v2-4';
+const DATA = 'cortex-data-1';
 const SHELL = ['/app/', '/manifest.json', '/icons/icon-192.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
-self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
+self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE && k !== DATA).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET' || url.origin !== location.origin || url.pathname.startsWith('/classic/')) return;
+  // FPL data: network first, keep the last good copy, and serve it when FPL errors (403/429/5xx) or we're offline.
+  if (url.pathname.startsWith('/api/fpl') && !url.searchParams.has('route')) {
+    e.respondWith(fetch(e.request).then(res => {
+      if (res.ok) { const c = res.clone(); caches.open(DATA).then(x => x.put(e.request, c)); return res; }
+      return caches.open(DATA).then(x => x.match(e.request)).then(hit => hit || res);
+    }).catch(() => caches.open(DATA).then(x => x.match(e.request)).then(hit => hit || Response.error())));
+    return;
+  }
   if (url.pathname.startsWith('/api/')) { e.respondWith(fetch(e.request).catch(() => caches.match(e.request))); return; }
   if (e.request.mode === 'navigate' && url.pathname.startsWith('/app')) { e.respondWith(fetch(e.request).catch(() => caches.match('/app/'))); return; }
   if (url.pathname.startsWith('/assets/')) {
